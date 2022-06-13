@@ -1,0 +1,33 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.2",
+	"FriendlyName": "ImGuiTools",
+	"Description": "A set of tools and utilities for use with Unreal Engine projects using ImGui.",
+	"Category": "Other",
+	"CreatedBy": "timothy.rawcliffe@gmail.com",
+	"CreatedByURL": "https://github.com/nakdeyes/UnrealImGuiTools",
+	"DocsURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "ImGuiTools",
+			"Type": "ClientOnlyNoCommandlet",
+			"LoadingPhase": "PreDefault"
+		},
+		{
+			"Name": "ImGuiToolsEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PreDefault"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ImGui",
+			"Enabled": true
+		}
+	]
+}
