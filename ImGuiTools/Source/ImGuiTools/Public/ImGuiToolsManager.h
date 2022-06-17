@@ -42,6 +42,7 @@ public:
 private:
 	ToolNamespaceMap ToolWindows;
 	bool DrawImGuiDemo;
+	bool ShowFPS;
 
 	void RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand>& Commands) const;
 };

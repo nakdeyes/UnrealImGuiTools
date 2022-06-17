@@ -7,6 +7,7 @@
 #include "Tools/ImGuiMemoryDebugger.h"
 
 #include <Engine/Console.h>
+#include <ImGuiModule.h>
 
 #if !UE_BUILD_SHIPPING
 #include "ImGuiTools.h"
@@ -22,6 +23,7 @@ FAutoConsoleCommand ToggleToolVis(*ToggleToolVisCVARName, TEXT("Toggle the visib
 
 FImGuiToolsManager::FImGuiToolsManager()
 	: DrawImGuiDemo(false)
+	, ShowFPS(true)
 {
 	UConsole::RegisterConsoleAutoCompleteEntries.AddRaw(this, &FImGuiToolsManager::RegisterAutoCompleteEntries);
 }
@@ -70,8 +72,73 @@ void FImGuiToolsManager::Tick(float DeltaTime)
 	// Draw Main Menu Bar
 	if (ImGui::BeginMainMenuBar())
 	{
+		if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
+		{
+			if (ImGui::BeginMenu("ImGui"))
+			{
+				bool InputCheckboxVal = Module->GetProperties().IsInputEnabled();
+				ImGui::Checkbox("Input Enabled", &InputCheckboxVal);
+				if (InputCheckboxVal != Module->GetProperties().IsInputEnabled())
+				{
+					Module->GetProperties().ToggleInput();
+				}
+
+				if (ImGui::BeginMenu("Input Options"))
+				{
+					ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Keyboard");
+				
+					InputCheckboxVal = Module->GetProperties().IsKeyboardNavigationEnabled();
+					ImGui::Checkbox("Keyboard Navigation", &InputCheckboxVal);
+					if (InputCheckboxVal != Module->GetProperties().IsKeyboardNavigationEnabled())
+					{
+						Module->GetProperties().ToggleKeyboardNavigation();
+					}
+					InputCheckboxVal = Module->GetProperties().IsKeyboardInputShared();
+					ImGui::Checkbox("Keyboard Input Shared", &InputCheckboxVal);
+					if (InputCheckboxVal != Module->GetProperties().IsKeyboardInputShared())
+					{
+						Module->GetProperties().ToggleKeyboardInputSharing();
+					}
+					InputCheckboxVal = Module->GetProperties().IsMouseInputShared();
+					ImGui::Checkbox("Mouse Input Shared", &InputCheckboxVal);
+					if (InputCheckboxVal != Module->GetProperties().IsMouseInputShared())
+					{
+						Module->GetProperties().ToggleMouseInputSharing();
+					}
+
+					ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Gamepad");
+
+					InputCheckboxVal = Module->GetProperties().IsGamepadNavigationEnabled();
+					ImGui::Checkbox("Gameplay Navigation", &InputCheckboxVal);
+					if (InputCheckboxVal != Module->GetProperties().IsGamepadNavigationEnabled())
+					{
+						Module->GetProperties().ToggleGamepadNavigation();
+					}
+					InputCheckboxVal = Module->GetProperties().IsGamepadInputShared();
+					ImGui::Checkbox("Gameplay Input Shared", &InputCheckboxVal);
+					if (InputCheckboxVal != Module->GetProperties().IsGamepadInputShared())
+					{
+						Module->GetProperties().ToggleGamepadInputSharing();
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::Separator();
+				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Misc");
+				ImGui::Checkbox("Draw ImGui demo", &DrawImGuiDemo);
+				ImGui::EndMenu();
+			}
+
+		}
 		if (ImGui::BeginMenu("UETools"))
 		{
+			if (ImGui::BeginMenu("Options"))
+			{
+				ImGui::Checkbox("Show FPS", &ShowFPS);
+				ImGui::EndMenu();
+			}
+
 			for (TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolWindows)
 			{
 				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", Ansi(*NamespaceToolWindows.Key.ToString()));
@@ -83,13 +150,20 @@ void FImGuiToolsManager::Tick(float DeltaTime)
 				}
 				ImGui::Separator();
 			}
-			ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Misc");
-			ImGui::Checkbox("Draw ImGui demo", &DrawImGuiDemo);
 			ImGui::EndMenu();
 		}
-		const float Width = ImGui::GetWindowWidth();
-		ImGui::SameLine(500.0f);
-		ImGui::Text("'imgui.toggleinput' to toggle input, or set HotKey in ImGui Plugin prefs.");
+		
+		if (ShowFPS)
+		{
+			ImGui::SameLine(130.0f);
+			const int FPS = static_cast<int>(1.0f / DeltaTime);
+			const float Millis = DeltaTime * 1000.0f;
+			ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "%03d FPS %.02f ms", FPS, Millis);
+		}
+
+		ImGui::SameLine(260.0f);
+		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "'imgui.toggleinput' to toggle input, or set HotKey in ImGui Plugin prefs.");
+
 		ImGui::EndMainMenuBar();
 	}
 

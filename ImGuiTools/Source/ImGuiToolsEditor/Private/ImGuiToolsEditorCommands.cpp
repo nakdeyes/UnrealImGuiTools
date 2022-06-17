@@ -6,8 +6,9 @@
 #include "ImGuiToolsManager.h"
 #include "ImGuiToolWindow.h"
 
-#include <LevelEditor.h>
+#include <ImGuiModule.h>
 #include <Internationalization/Text.h>
+#include <LevelEditor.h>
 
 #define LOCTEXT_NAMESPACE "FImGuiToolsModule"
 
@@ -20,9 +21,13 @@ void FImGuiToolsEditorElements::RegisterElements()
 {
 	CommandList = MakeShareable(new FUICommandList);
 
-	CommandList->MapAction(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand,
+	/*CommandList->MapAction(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand,
 						   FExecuteAction::CreateRaw(this, &FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_Toggled), FCanExecuteAction(),
-						   FIsActionChecked::CreateRaw(this, &FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_IsChecked));
+						   FIsActionChecked::CreateRaw(this, &FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_IsChecked));*/
+
+	CommandList->MapAction(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand,
+		FExecuteAction::CreateLambda([]() { ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(!ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread()); }), FCanExecuteAction(),
+		FIsActionChecked::CreateLambda([]() -> bool { return ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread(); }));
 
 	struct Local
 	{
@@ -38,22 +43,63 @@ void FImGuiToolsEditorElements::RegisterElements()
 					const TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = NamespaceToolWindows.Value;
 					for (const TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceTools)
 					{
-						MenuBuilder.AddMenuEntry(FText::FromString(FString(ToolWindow->GetToolName())), FText(), FSlateIcon(), 
-							FUIAction(FExecuteAction::CreateStatic(&FImGuiToolsEditorElements::Callback_ImguiToolWindow_Toggle, ToolWindow), FCanExecuteAction(),
-									  FIsActionChecked::CreateStatic(&FImGuiToolsEditorElements::Callback_ImguiToolWindow_IsChecked, ToolWindow)), NAME_None, EUserInterfaceActionType::ToggleButton);
+						MenuBuilder.AddMenuEntry(FText::FromString(FString(ToolWindow->GetToolName())), FText(), FSlateIcon(),
+							FUIAction(FExecuteAction::CreateLambda([ToolWindow]() { ToolWindow->EnableTool(!ToolWindow->GetEnabledRef()); }), FCanExecuteAction(),
+								FIsActionChecked::CreateLambda([ToolWindow]() -> bool { return ToolWindow->GetEnabledRef(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
 					}
 					MenuBuilder.EndSection();
 				}
 			}
 		}
 
+		static void FillImGuiInputModuleSubmenu(FMenuBuilder& MenuBuilder, FImGuiModule* ImGuiModule)
+		{
+			MenuBuilder.AddMenuEntry(LOCTEXT("ImGui_InputEnabled", "Input Enabled"), FText(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([ImGuiModule]() { ImGuiModule->GetProperties().ToggleInput(); }), FCanExecuteAction(),
+				FIsActionChecked::CreateLambda([ImGuiModule]() -> bool { return ImGuiModule->GetProperties().IsInputEnabled(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+
+			MenuBuilder.BeginSection(NAME_None, LOCTEXT("KeyboardMouse", "Keyboard & Mouse"));
+			MenuBuilder.AddMenuEntry(LOCTEXT("ImGui_KeyboardNav", "Keyboard Navigation"), FText(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([ImGuiModule]() { ImGuiModule->GetProperties().ToggleKeyboardNavigation(); }), FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([ImGuiModule]() -> bool { return ImGuiModule->GetProperties().IsKeyboardNavigationEnabled(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+
+			MenuBuilder.AddMenuEntry(LOCTEXT("ImGui_KeyboardInputShared", "Keyboard Input Shared"), FText(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([ImGuiModule]() { ImGuiModule->GetProperties().ToggleKeyboardInputSharing(); }), FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([ImGuiModule]() -> bool { return ImGuiModule->GetProperties().IsKeyboardInputShared(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+
+			MenuBuilder.AddMenuEntry(LOCTEXT("ImGui_MouseInputShared", "Mouse Input Shared"), FText(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([ImGuiModule]() { ImGuiModule->GetProperties().ToggleMouseInputSharing(); }), FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([ImGuiModule]() -> bool { return ImGuiModule->GetProperties().IsMouseInputShared(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+			MenuBuilder.EndSection();
+
+			MenuBuilder.BeginSection(NAME_None, LOCTEXT("Gamepad", "Gamepad"));
+
+			MenuBuilder.AddMenuEntry(LOCTEXT("ImGui_GamepadNav", "Gamepad Navigation"), FText(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([ImGuiModule]() { ImGuiModule->GetProperties().ToggleGamepadNavigation(); }), FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([ImGuiModule]() -> bool { return ImGuiModule->GetProperties().IsGamepadNavigationEnabled(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+
+			MenuBuilder.AddMenuEntry(LOCTEXT("ImGui_KeyboardInputShared", "Gamepad Input Shared"), FText(), FSlateIcon(),
+				FUIAction(FExecuteAction::CreateLambda([ImGuiModule]() { ImGuiModule->GetProperties().ToggleGamepadInputSharing(); }), FCanExecuteAction(),
+					FIsActionChecked::CreateLambda([ImGuiModule]() -> bool { return ImGuiModule->GetProperties().IsGamepadInputShared(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+
+			MenuBuilder.EndSection();
+		}
+
 		static TSharedRef<SWidget> FillImGuiToolsMenu(TSharedPtr<FUICommandList> CommandList) 
 		{
 			FMenuBuilder MenuBuilder(true, CommandList);
 
+			MenuBuilder.BeginSection(NAME_None, LOCTEXT("ImGuiTools", "ImGui Tools"));
 			MenuBuilder.AddMenuEntry(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand);
-
 			MenuBuilder.AddSubMenu(LOCTEXT("ImGuiTools_ToolWindows", "Tool Windows"), FText(), FMenuExtensionDelegate::CreateStatic(&Local::FillToolWindowsSubmenu));
+			MenuBuilder.EndSection();
+
+			if (FImGuiModule* ImGuiModule = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
+			{
+				MenuBuilder.BeginSection(NAME_None, LOCTEXT("ImGuiOptions", "ImGui Options"));
+				MenuBuilder.AddSubMenu(LOCTEXT("ImGui_Input", "Input"), FText(), FMenuExtensionDelegate::CreateStatic(&Local::FillImGuiInputModuleSubmenu, ImGuiModule));
+				MenuBuilder.EndSection();
+			}
 
 			return MenuBuilder.MakeWidget();
 		}
@@ -71,26 +117,6 @@ void FImGuiToolsEditorElements::RegisterElements()
 	NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
 
 	LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
-}
-
-bool FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_IsChecked()
-{
-	return ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread();
-}
-
-void FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_Toggled()
-{
-	ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(!ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread());
-}
-
-bool FImGuiToolsEditorElements::Callback_ImguiToolWindow_IsChecked(TSharedPtr<FImGuiToolWindow> ToolWindow)
-{
-	return ToolWindow->GetEnabledRef();
-}
-
-void FImGuiToolsEditorElements::Callback_ImguiToolWindow_Toggle(TSharedPtr<FImGuiToolWindow> ToolWindow)
-{
-	ToolWindow->EnableTool(!ToolWindow->GetEnabledRef());
 }
 
 #undef LOCTEXT_NAMESPACE

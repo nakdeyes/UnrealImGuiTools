@@ -33,12 +33,6 @@ public:
 	void RegisterElements();
 
 private:
-	// Command Callback functions
-	bool Callback_ImGuiToolEnabledCommand_IsChecked();
-	void Callback_ImGuiToolEnabledCommand_Toggled();
-
-	static bool Callback_ImguiToolWindow_IsChecked(TSharedPtr<FImGuiToolWindow> ToolWindow);
-	static void Callback_ImguiToolWindow_Toggle(TSharedPtr<FImGuiToolWindow> ToolWindow);
 
 	TSharedPtr<FUICommandList> CommandList;
 };
