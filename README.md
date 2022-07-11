@@ -32,6 +32,15 @@ When outside the editor (like in Standalone builds) the main way to interact wit
  
 ![image](https://user-images.githubusercontent.com/15803559/178166803-b6f8494c-2fbd-49ce-8f98-a85c94417487.png)
 
+### Creating game level ImGui Tool windows
+Create your own ImGui tool windows in your game module! 
+
+There is example game module code in the ```ExampleGameCode``` directory that will show you how to register tools with the plugin.
+
+***Question:*** Why the heck should I pipe my game ImGui tools through the plugin? 
+
+***Answer:*** Really, it just gives you a nice ImGui drawing entry point, an editor button, in-game menu button, and a CVAR via ```imgui.tools.toggle_tool_vis``` to toggle the visibility of your tool. Boiler plate that you might find yourself doing often when writing bespoke ImGui tool windows.
+
 # Included Tools
 ## Memory Debugger
 The Memory Debugger was built to show detailed memory information at runtime. While Memory Insights is largely useful for debugging individual allocations and some high level data, and the STAT commands can show you some useful buckets at a glance, this memory debugger is meant to fit somewhere in the middle. It is meant to compliment the existing memory debugging tools. There are a few parts to the Memory Debugger
