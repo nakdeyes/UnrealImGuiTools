@@ -20,16 +20,17 @@ public class ImGuiToolsEditor : ModuleRules
 			new string[]
 			{
 				"ImGuiTools",
-				"Projects",
-				"InputCore",
-				"UnrealEd",
-				"ToolMenus",
+
 				"CoreUObject",
 				"Engine",
+				"InputCore",
+				"Projects",
 				"RenderCore",
 				"RHI",
 				"Slate",
 				"SlateCore",
+				"ToolMenus",
+				"UnrealEd",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

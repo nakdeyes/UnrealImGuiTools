@@ -3,6 +3,7 @@
 #include "ImGuiToolsEditorCommands.h"
 
 #include "ImGuiTools.h"
+#include "ImGuiToolsDeveloperSettings.h"
 #include "ImGuiToolsManager.h"
 #include "ImGuiToolWindow.h"
 
@@ -111,12 +112,15 @@ void FImGuiToolsEditorElements::RegisterElements()
 		}
 	};
 
-	FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+	if (GetDefault<UImGuiToolsDeveloperSettings>()->DisplayEditorButton)
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 
-	TSharedPtr<FExtender> NewToolbarExtender = MakeShareable(new FExtender);
-	NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
+		TSharedPtr<FExtender> NewToolbarExtender = MakeShareable(new FExtender);
+		NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
 
-	LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
+		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -45,4 +45,6 @@ private:
 	bool ShowFPS;
 
 	void RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand>& Commands) const;
+
+	FConsoleVariableDelegate OnEnabledCVarValueChanged;
 };

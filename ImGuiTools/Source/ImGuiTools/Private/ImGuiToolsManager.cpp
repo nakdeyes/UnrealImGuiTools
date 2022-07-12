@@ -2,6 +2,7 @@
 
 #include "ImGuiToolsManager.h"
 
+#include "ImGuiToolsDeveloperSettings.h"
 #include "Tools/ImGuiActorComponentDebugger.h"
 #include "Tools/ImGuiFileLoadDebugger.h"
 #include "Tools/ImGuiMemoryDebugger.h"
@@ -26,6 +27,19 @@ FImGuiToolsManager::FImGuiToolsManager()
 	, ShowFPS(true)
 {
 	UConsole::RegisterConsoleAutoCompleteEntries.AddRaw(this, &FImGuiToolsManager::RegisterAutoCompleteEntries);
+	
+	OnEnabledCVarValueChanged.BindLambda([](IConsoleVariable* CVar) {
+		if (!GetDefault<UImGuiToolsDeveloperSettings>()->SetImGuiInputOnToolsEnabled)
+		{
+			return;
+		}
+
+		if (FImGuiModule* ImGuiModule = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
+		{
+			ImGuiModule->SetInputMode(CVar->GetBool());
+		}
+	});
+	ImGuiDebugCVars::CVarImGuiToolsEnabled->SetOnChangedCallback(OnEnabledCVarValueChanged);
 }
 
 FImGuiToolsManager::~FImGuiToolsManager()

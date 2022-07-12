@@ -19,10 +19,11 @@ public class ImGuiTools : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"Projects",
-				"InputCore",
 				"CoreUObject",
+				"DeveloperSettings",
 				"Engine",
+				"InputCore",
+				"Projects",
 				"RenderCore",
 				"RHI",
 				"Slate",
