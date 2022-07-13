@@ -45,7 +45,7 @@ namespace ImGuiActorCompUtils
 				const bool FirstEntry = (j++ == 0);
 				if (FirstEntry)
 				{
-					ImGui::Text(Ansi(*Class->GetName()));
+					ImGui::Text("%s", Ansi(*Class->GetName()));
 				}
 				else
 				{
@@ -80,27 +80,27 @@ namespace ImGuiActorCompUtils
 		else if (Prop->IsA(FInt64Property::StaticClass()))
 		{
 			const int64 Value = *(const int64*)ObjValuePtr;
-			ImGui::Text("% jd", Value);
+			ImGui::Text("% lld", Value);
 		}
 		else if (Prop->IsA(FNameProperty::StaticClass()))
 		{
 			const FName Value = *(const FName*)ObjValuePtr;
-			ImGui::Text(Ansi(*Value.ToString()));
+			ImGui::Text("%s", Ansi(*Value.ToString()));
 		}
 		else if (Prop->IsA(FStrProperty::StaticClass()))
 		{
 			const FString Value = *(const FString*)ObjValuePtr;
-			ImGui::Text(Ansi(*Value));
+			ImGui::Text("%s", Ansi(*Value));
 		}
 		else if (const FObjectProperty* ObjProp = CastField<FObjectProperty>(Prop))
 		{
 			UObject* ObjValue = ObjProp->GetObjectPropertyValue_InContainer(Obj);
-			ImGui::Text(ObjValue ? Ansi(*ObjValue->GetName()) : "*none*");
+			ImGui::Text("%s", ObjValue ? Ansi(*ObjValue->GetName()) : "*none*");
 		}
 		else if (const FWeakObjectProperty* WeakObjProp = CastField<FWeakObjectProperty>(Prop))
 		{
 			UObject* ObjValue = WeakObjProp->GetObjectPropertyValue_InContainer(Obj);
-			ImGui::Text(ObjValue ? Ansi(*ObjValue->GetName()) : "*none*");
+			ImGui::Text("%s", ObjValue ? Ansi(*ObjValue->GetName()) : "*none*");
 		}
 		else if (FArrayProperty* ArrayProp = CastField<FArrayProperty>(Prop))
 		{
@@ -177,7 +177,7 @@ namespace ImGuiActorCompUtils
 			if (UEnum* Enum = ENumProp->GetEnum())
 			{
 				const int64 Value = *(const int64*)ObjValuePtr;
-				ImGui::Text(Ansi(*FString::Printf(TEXT("(%d)%s::%s"), Value, *Enum->GetName(), *Enum->GetDisplayNameTextByValue(Value).ToString())));
+				ImGui::Text("%s", Ansi(*FString::Printf(TEXT("(%d)%s::%s"), Value, *Enum->GetName(), *Enum->GetDisplayNameTextByValue(Value).ToString())));
 			}
 			else
 			{
@@ -189,11 +189,11 @@ namespace ImGuiActorCompUtils
 			const int64 Value = ((int64)(*(const int8*)ObjValuePtr));
 			if (UEnum* Enum = ByteProp->Enum)
 			{
-				ImGui::Text(Ansi(*FString::Printf(TEXT("(%d)%s::%s"), Value, *Enum->GetName(), *Enum->GetDisplayNameTextByValue(Value).ToString())));
+				ImGui::Text("%s", Ansi(*FString::Printf(TEXT("(%d)%s::%s"), Value, *Enum->GetName(), *Enum->GetDisplayNameTextByValue(Value).ToString())));
 			}
 			else
 			{
-				ImGui::Text("%d", Value);
+				ImGui::Text("%lld", Value);
 			}
 		}
 		else if (const FDelegateProperty* DelegateProp = CastField<FDelegateProperty>(Prop))
@@ -251,10 +251,10 @@ namespace ImGuiActorCompUtils
 
 		for (FProperty* Prop : TFieldRange<FProperty>(ObjClass))
 		{
-			ImGui::Text(Ansi(*Prop->GetName())); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*Prop->GetName())); ImGui::NextColumn();
 			DrawPropertyValue(Prop, Obj); ImGui::NextColumn();
-			ImGui::Text(Ansi(*Prop->GetClass()->GetName())); ImGui::NextColumn();
-			ImGui::Text(Ansi(*Prop->GetCPPType())); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*Prop->GetClass()->GetName())); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*Prop->GetCPPType())); ImGui::NextColumn();
 		}
 
 		ImGui::Columns(1);
@@ -273,7 +273,7 @@ namespace ImGuiActorCompUtils
         {
             const bool NodeOpen = ImGui::TreeNode(Ansi(*CompLabel));
             ImGui::NextColumn();
-			ImGui::Text(Ansi(*SceneComp->GetClass()->GetName())); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*SceneComp->GetClass()->GetName())); ImGui::NextColumn();
 			ImGui::Text(SceneComp->IsActive() ? "true" : "false"); ImGui::NextColumn();
 			ImGui::Text(SceneComp->IsComponentTickEnabled() ? "true" : "false"); ImGui::NextColumn();
 			ImGui::Text(SceneComp->GetIsReplicated() ? "true" : "false"); ImGui::NextColumn();
@@ -289,8 +289,8 @@ namespace ImGuiActorCompUtils
         }
         else
         {
-            ImGui::Text(Ansi(*CompLabel)); ImGui::NextColumn();
-			ImGui::Text(Ansi(*SceneComp->GetClass()->GetName())); ImGui::NextColumn();
+            ImGui::Text("%s", Ansi(*CompLabel)); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*SceneComp->GetClass()->GetName())); ImGui::NextColumn();
 			ImGui::Text(SceneComp->IsActive() ? "true" : "false"); ImGui::NextColumn();
 			ImGui::Text(SceneComp->IsComponentTickEnabled() ? "true" : "false"); ImGui::NextColumn();
 			ImGui::Text(SceneComp->GetIsReplicated() ? "true" : "false"); ImGui::NextColumn();
@@ -308,16 +308,16 @@ namespace ImGuiActorCompUtils
             ImGui::Columns(2);
 
             ImGui::Text("Actor Name"); ImGui::NextColumn();
-            ImGui::Text(Ansi(*Act->GetName())); ImGui::Separator(); ImGui::NextColumn();
+            ImGui::Text("%s", Ansi(*Act->GetName())); ImGui::Separator(); ImGui::NextColumn();
 
             ImGui::Text("Replicates"); ImGui::NextColumn();
-            ImGui::Text(Ansi(*GetReplicationString_Actor(Act))); ImGui::NextColumn();
+            ImGui::Text("%s", Ansi(*GetReplicationString_Actor(Act))); ImGui::NextColumn();
 
 			ImGui::Text("Replicates Movement"); ImGui::NextColumn();
 			ImGui::Text(Act->IsReplicatingMovement() ? "true" : "false"); ImGui::NextColumn();
             
             ImGui::Text("World"); ImGui::NextColumn();
-            ImGui::Text(Ansi(*Act->GetWorld()->GetName())); ImGui::NextColumn();
+            ImGui::Text("%s", Ansi(*Act->GetWorld()->GetName())); ImGui::NextColumn();
             
             ImGui::Text("Actor Tick"); ImGui::NextColumn();
             ImGui::Text(Act->IsActorTickEnabled() ? "true" : "false"); ImGui::NextColumn();
@@ -383,10 +383,10 @@ namespace ImGuiActorCompUtils
                         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Actor Components:");
                         ImGui::NextColumn(); ImGui::NextColumn(); ImGui::NextColumn(); ImGui::NextColumn(); ImGui::NextColumn();
                     }
-                    ImGui::Text(Ansi(*FString::Printf(TEXT(" %d - %s "), CompCount, *Comp->GetName())));
+                    ImGui::Text("%s", Ansi(*FString::Printf(TEXT(" %d - %s "), CompCount, *Comp->GetName())));
 
 					ImGui::NextColumn();
-					ImGui::Text(Ansi(*Comp->GetClass()->GetName())); ImGui::NextColumn();
+					ImGui::Text("%s", Ansi(*Comp->GetClass()->GetName())); ImGui::NextColumn();
 					ImGui::Text(Comp->IsActive() ? "true" : "false"); ImGui::NextColumn();
 					ImGui::Text(Comp->IsComponentTickEnabled() ? "true" : "false"); ImGui::NextColumn();
 					ImGui::Text(Comp->GetIsReplicated() ? "true" : "false"); ImGui::NextColumn();
@@ -408,13 +408,13 @@ namespace ImGuiActorCompUtils
 			ImGui::Columns(2);
 
 			ImGui::Text("Component Name"); ImGui::NextColumn();
-			ImGui::Text(Ansi(*Comp->GetName())); ImGui::Separator(); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*Comp->GetName())); ImGui::Separator(); ImGui::NextColumn();
 
 			ImGui::Text("Owner"); ImGui::NextColumn();
-			ImGui::Text(Comp->GetOwner() ? Ansi(*Comp->GetOwner()->GetName()) : "*none*"); ImGui::NextColumn();
+			ImGui::Text("%s", Comp->GetOwner() ? Ansi(*Comp->GetOwner()->GetName()) : "*none*"); ImGui::NextColumn();
 
 			ImGui::Text("World"); ImGui::NextColumn();
-			ImGui::Text(Ansi(*Comp->GetWorld()->GetName())); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*Comp->GetWorld()->GetName())); ImGui::NextColumn();
 
 			ImGui::Text("Activated"); ImGui::NextColumn();
 			ImGui::Text(Comp->IsActive() ? "active" : "not active"); ImGui::NextColumn();
@@ -423,7 +423,7 @@ namespace ImGuiActorCompUtils
 			ImGui::Text(Comp->IsComponentTickEnabled() ? "enabled" : "disabled"); ImGui::NextColumn();
 
 			ImGui::Text("Replicates"); ImGui::NextColumn();
-			ImGui::Text(Ansi(*GetReplicationString_Component(Comp))); ImGui::NextColumn();
+			ImGui::Text("%s", Ansi(*GetReplicationString_Component(Comp))); ImGui::NextColumn();
 
 			ImGui::Columns(1);
 			ImGui::EndChild();
@@ -471,7 +471,7 @@ namespace ImGuiActorCompUtils
 				}
 				ImGui::NextColumn(); ImGui::NextColumn();
 
-				ImGui::Text(Ansi(*GetReplicationString_Actor(ActorPtr))); ImGui::NextColumn();
+				ImGui::Text("%s", Ansi(*GetReplicationString_Actor(ActorPtr))); ImGui::NextColumn();
 				ImGui::Text(ActorPtr->IsActorTickEnabled() ? "true" : "false"); ImGui::NextColumn();
 
 				int TickingComps = 0;
@@ -534,10 +534,10 @@ namespace ImGuiActorCompUtils
 				ImGui::NextColumn(); ImGui::NextColumn();
 
 				
-				ImGui::Text(CompPtr->GetOwner() ? Ansi(*CompPtr->GetOwner()->GetName()) : "*none*"); ImGui::NextColumn();
+				ImGui::Text("%s", CompPtr->GetOwner() ? Ansi(*CompPtr->GetOwner()->GetName()) : "*none*"); ImGui::NextColumn();
 				ImGui::Text(CompPtr->IsActive() ? "active" : "not active"); ImGui::NextColumn();
 				ImGui::Text(CompPtr->IsComponentTickEnabled() ? "enabled" : "disabled"); ImGui::NextColumn();
-				ImGui::Text(Ansi(*GetReplicationString_Component(CompPtr))); ImGui::NextColumn();
+				ImGui::Text("%s", Ansi(*GetReplicationString_Component(CompPtr))); ImGui::NextColumn();
 			}
 
 			// Display Child classes
@@ -791,7 +791,7 @@ namespace ImGuiActorCompUtils
 			if (ImGui::BeginTabItem(Ansi(*World->GetDebugDisplayName())))
 			{
 				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("Header##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
-				ImGui::Text(Ansi(*World->GetDebugDisplayName()));
+				ImGui::Text("%s", Ansi(*World->GetDebugDisplayName()));
 
 				ImGui::Separator();
 
@@ -884,7 +884,7 @@ namespace ImGuiActorCompUtils
 			{
 
 				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("Header##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
-				ImGui::Text(Ansi(*World->GetDebugDisplayName()));
+				ImGui::Text("%s", Ansi(*World->GetDebugDisplayName()));
 
                 ImGui::Separator();
 
@@ -1077,7 +1077,7 @@ void FImGuiActorComponentDebugger::ImGuiUpdate(float DeltaTime)
                 if (HasWorldOfMode)
                 {
                     const FString ButtonNameString(ButtonName);
-                    ImGui::Text(ButtonName); ImGui::SameLine();
+                    ImGui::Text("%s", ButtonName); ImGui::SameLine();
 				    if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Enable##%s"), *ButtonNameString))))
 				    {
 					    ToggleWorlds(WorldMode, /*enable*/ true);
