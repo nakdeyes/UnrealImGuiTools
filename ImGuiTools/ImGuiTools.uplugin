@@ -16,12 +16,14 @@
 		{
 			"Name": "ImGuiTools",
 			"Type": "ClientOnlyNoCommandlet",
-			"LoadingPhase": "PreDefault"
+			"LoadingPhase": "PreDefault",
+			"TargetConfigurationDenyList": [ "Shipping" ]
 		},
 		{
 			"Name": "ImGuiToolsEditor",
 			"Type": "Editor",
-			"LoadingPhase": "PreDefault"
+			"LoadingPhase": "PreDefault",
+			"TargetConfigurationDenyList": [ "Shipping" ]
 		}
 	],
 	"Plugins": [
