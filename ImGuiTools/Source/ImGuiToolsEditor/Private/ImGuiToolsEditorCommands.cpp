@@ -40,7 +40,7 @@ void FImGuiToolsEditorElements::RegisterElements()
 				ToolNamespaceMap& ToolsWindows = ImGuiToolsModule.GetToolsManager()->GetToolsWindows();
 				for (const TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolsWindows)
 				{
-					MenuBuilder.BeginSection("ImGuiTools", FText::FromName(NamespaceToolWindows.Key));
+					MenuBuilder.BeginSection(FName(FString::Printf(TEXT("ImGuiTools.%s"), *NamespaceToolWindows.Key.ToString())), FText::FromName(NamespaceToolWindows.Key));
 					const TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = NamespaceToolWindows.Value;
 					for (const TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceTools)
 					{
@@ -90,14 +90,14 @@ void FImGuiToolsEditorElements::RegisterElements()
 		{
 			FMenuBuilder MenuBuilder(true, CommandList);
 
-			MenuBuilder.BeginSection(NAME_None, LOCTEXT("ImGuiTools", "ImGui Tools"));
+			MenuBuilder.BeginSection(TEXT("ImGuiTools.Main"), LOCTEXT("ImGuiTools", "ImGui Tools"));
 			MenuBuilder.AddMenuEntry(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand);
 			MenuBuilder.AddSubMenu(LOCTEXT("ImGuiTools_ToolWindows", "Tool Windows"), FText(), FMenuExtensionDelegate::CreateStatic(&Local::FillToolWindowsSubmenu));
 			MenuBuilder.EndSection();
 
 			if (FImGuiModule* ImGuiModule = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
 			{
-				MenuBuilder.BeginSection(NAME_None, LOCTEXT("ImGuiOptions", "ImGui Options"));
+				MenuBuilder.BeginSection(TEXT("ImGuiTools.ImGuiOptions"), LOCTEXT("ImGuiOptions", "ImGui Options"));
 				MenuBuilder.AddSubMenu(LOCTEXT("ImGui_Input", "Input"), FText(), FMenuExtensionDelegate::CreateStatic(&Local::FillImGuiInputModuleSubmenu, ImGuiModule));
 				MenuBuilder.EndSection();
 			}
