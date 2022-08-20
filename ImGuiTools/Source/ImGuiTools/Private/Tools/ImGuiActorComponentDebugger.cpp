@@ -404,7 +404,7 @@ namespace ImGuiActorCompUtils
 	{
 		if (ImGui::CollapsingHeader("Component Info", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ImGui::BeginChild(Ansi(*FString::Printf(TEXT("a:%sw:%s##ActorInfo"), *Comp->GetName(), *Comp->GetWorld()->GetName())), ImVec2(0.0f, 130.0f));
+			ImGui::BeginChild(Ansi(*FString::Printf(TEXT("a:%sw:%s##CompInfo"), *Comp->GetName(), *Comp->GetWorld()->GetName())), ImVec2(0.0f, 130.0f));
 			ImGui::Columns(2);
 
 			ImGui::Text("Component Name"); ImGui::NextColumn();
@@ -790,7 +790,7 @@ namespace ImGuiActorCompUtils
 
 			if (ImGui::BeginTabItem(Ansi(*World->GetDebugDisplayName())))
 			{
-				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("Header##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
+				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("CompHeader##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
 				ImGui::Text("%s", Ansi(*World->GetDebugDisplayName()));
 
 				ImGui::Separator();
@@ -843,7 +843,7 @@ namespace ImGuiActorCompUtils
 				ImGui::EndChild(); // Header
 
 
-				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("Contents##%s"), *World->GetDebugDisplayName())), ImVec2(0, 0), true);
+				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("CompContents##%s"), *World->GetDebugDisplayName())), ImVec2(0, 0), true);
 				ImGui::Columns(Columns);
 
 				if (WorldSettings.ClassHierarchy)
@@ -883,7 +883,7 @@ namespace ImGuiActorCompUtils
 			if (ImGui::BeginTabItem(Ansi(*World->GetDebugDisplayName())))
 			{
 
-				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("Header##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
+				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("ActorHeader##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
 				ImGui::Text("%s", Ansi(*World->GetDebugDisplayName()));
 
                 ImGui::Separator();
@@ -934,7 +934,7 @@ namespace ImGuiActorCompUtils
 				ImGui::EndChild(); // Header
 
 
-				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("Contents##%s"), *World->GetDebugDisplayName())), ImVec2(0, 0), true);
+				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("ActorContents##%s"), *World->GetDebugDisplayName())), ImVec2(0, 0), true);
                 ImGui::Columns(Columns);
 
 				if (WorldSettings.ClassHierarchy)

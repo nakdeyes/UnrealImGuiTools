@@ -11,6 +11,13 @@
 #include <Internationalization/Text.h>
 #include <LevelEditor.h>
 
+#define ADD_PM_IMGUI_WIDGETS 1
+
+#if ADD_PM_IMGUI_WIDGETS
+#include "Runtime/Engine/Classes/GameFramework/PlayerController.h"
+#include "Runtime/Engine/Classes/Engine/World.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "FImGuiToolsModule"
 
 void FImGuiToolsEditorCommands::RegisterCommands()
@@ -48,7 +55,215 @@ void FImGuiToolsEditorElements::RegisterElements()
 							FUIAction(FExecuteAction::CreateLambda([ToolWindow]() { ToolWindow->EnableTool(!ToolWindow->GetEnabledRef()); }), FCanExecuteAction(),
 								FIsActionChecked::CreateLambda([ToolWindow]() -> bool { return ToolWindow->GetEnabledRef(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
 					}
+                    MenuBuilder.EndSection();
+#if ADD_PM_IMGUI_WIDGETS
+                    //
+                    // The goal of this change is to add custom PMImGui widgets here so that all ImGui functionality
+                    // is located in one submenu.
+                    // 
+                    // Although Unreal provides an extension hook mechanism to add an entry to the submenu, this case is more complex since 
+                    // here the extension needs to be added to the submenu of the custom toolbar button. 
+                    // However, the default extension scenarios usually fall under one of the following:
+                    //
+                    // a) Use the level editor toolbar extender to add a new toolbar button
+                    // b) Use the level editor menu extender to add a new menu entry
+                    //
+                    // Something that is needed is a mix of these two - add a new menu entry to an exiting toolbar button.
+                    // There are instances of this, that incorporate the ToolMenus module.
+                    // However, those require a slightly different implementation.
+                    // 
+                    // This way, to keep the plugin changes to a minimum, widgets are added here.
+                    // There are only 2 changes to the Plugin code - this block and includes in this source file.
+                    // They can be easily removed when needed.
+                    //
+                    // Custom widgets are added using the following mechanism:
+                    // 
+                    //  - There are no explicit calls to PMImGui API. PMImGuiWidgetHandler allows adding registered widgets using console commands,
+                    //    so it is sufficient to run 'ConsoleCommand' on a player controller;
+                    //  - PMImGui widgets are only valid in the PIE/Game context. This way, every FUIAction is implemented so that:
+                    //      * When executed in the Editor context (no active PIE session), a corresponding ConsoleCommand is scheduled so that the widget 
+                    //        is activated when the PIE session is initialized (first using the FEditorDelegates::PostPIEStarted to obtain an instance of PIEWorld,
+                    //        then PIEWorld->OnWorldMatchStarting to obtain a valid player controller);
+                    //      * When executed in the PIE context, a command is invoked immediately
+                    //
+                    MenuBuilder.BeginSection(FName(TEXT("ImGuiTools.PMImGuiWidgets")), FText::FromString(TEXT("PMImGuiWidgets")));
+                    static bool sWidgetHandlerChecked = false;
+                    static const TCHAR* kShowWidgetHandlerCommand = TEXT("ToggleWidgetHandler"); 
+                    MenuBuilder.AddMenuEntry(
+                        FText::FromString(FString("Widget Handler")), 
+                        FText(), 
+                        FSlateIcon(),
+                        FUIAction(FExecuteAction::CreateLambda([]()
+                            {
+                                sWidgetHandlerChecked = !sWidgetHandlerChecked;
+                                FWorldContext* WorldContext = IsValid(GEditor) ? GEditor->GetPIEWorldContext() : nullptr;
+                                UWorld*        PIEWorld = nullptr;
+                                if (WorldContext)
+                                {
+                                    PIEWorld = GEditor->GetPIEWorldContext()->World();
+                                }
+                                // During active PIE
+                                if (IsValid(PIEWorld))
+                                {
+                                    PIEWorld->GetFirstPlayerController()->ConsoleCommand(kShowWidgetHandlerCommand, true);
+                                }
+                                // No active PIE
+                                else
+                                {
+                                    FDelegateHandle PIEPostStartHandle = FEditorDelegates::PostPIEStarted.AddLambda([&PIEPostStartHandle](const bool)
+                                    {
+                                        FEditorDelegates::PostPIEStarted.Remove(PIEPostStartHandle);
+                                        UWorld* PIEWorld = GEditor->GetPIEWorldContext()->World();
+                                        if (IsValid(PIEWorld))
+                                        {
+                                            FDelegateHandle WorldMatchStartingHandle = PIEWorld->OnWorldMatchStarting
+                                                .AddLambda([PIEWorld, &WorldMatchStartingHandle]()
+                                                {
+                                                    PIEWorld->OnWorldMatchStarting.Remove(WorldMatchStartingHandle);
+                                                    if (sWidgetHandlerChecked)
+                                                    {
+                                                        PIEWorld->GetFirstPlayerController()->ConsoleCommand(kShowWidgetHandlerCommand, true);
+                                                    }
+                                                }
+                                            );
+                                        }
+                                       
+                                    });
+                                    FDelegateHandle OnPreExitHandle = FCoreDelegates::OnPreExit.AddLambda([&PIEPostStartHandle, &OnPreExitHandle]()
+                                    {
+                                        FEditorDelegates::PostPIEStarted.Remove(PIEPostStartHandle);
+                                        FCoreDelegates::OnPreExit.Remove(OnPreExitHandle);
+                                    });
+                                }  
+                            }),
+                        FCanExecuteAction(),
+                        FIsActionChecked::CreateLambda([]()
+                        {
+                            return sWidgetHandlerChecked;
+                        }
+                        )),
+                        NAME_None,
+                        EUserInterfaceActionType::ToggleButton
+                    );
+
+                    static bool sAnimationDebugChecked             = false;
+                    static const TCHAR* kShowAnimationDebugCommand = TEXT("ShowImGuiDebugWidgetByDrawFunctionName AnimationDebug"); 
+                    MenuBuilder.AddMenuEntry(
+                        FText::FromString(FString("Animation Debug")), 
+                        FText(), 
+                        FSlateIcon(),
+                        FUIAction(FExecuteAction::CreateLambda([]()
+                            {
+                                sAnimationDebugChecked = !sAnimationDebugChecked;
+                                FWorldContext* WorldContext = IsValid(GEditor) ? GEditor->GetPIEWorldContext() : nullptr;
+                                UWorld*        PIEWorld = nullptr;
+                                if (WorldContext)
+                                {
+                                    PIEWorld = GEditor->GetPIEWorldContext()->World();
+                                }
+                      
+                                // During active PIE
+                                if (IsValid(PIEWorld))
+                                {
+                                    PIEWorld->GetFirstPlayerController()->ConsoleCommand(kShowAnimationDebugCommand, true);
+                                }
+                                // No active PIE
+                                else
+                                {
+                                    FDelegateHandle PIEPostStartHandle = FEditorDelegates::PostPIEStarted.AddLambda([&PIEPostStartHandle](const bool)
+                                    {
+                                        FEditorDelegates::PostPIEStarted.Remove(PIEPostStartHandle);
+                                        UWorld* PIEWorld = GEditor->GetPIEWorldContext()->World();
+                                        if (IsValid(PIEWorld))
+                                        {
+                                            FDelegateHandle WorldMatchStartingHandle = PIEWorld->OnWorldMatchStarting
+                                                .AddLambda([PIEWorld, &WorldMatchStartingHandle]()
+                                                {
+                                                    PIEWorld->OnWorldMatchStarting.Remove(WorldMatchStartingHandle);
+                                                    if (sAnimationDebugChecked)
+                                                    {
+                                                        PIEWorld->GetFirstPlayerController()->ConsoleCommand(kShowAnimationDebugCommand, true);
+                                                    }
+                                                }
+                                            );
+                                        }
+                                    });
+                                    FDelegateHandle OnPreExitHandle = FCoreDelegates::OnPreExit.AddLambda([&PIEPostStartHandle, &OnPreExitHandle]()
+                                    {
+                                        FEditorDelegates::PostPIEStarted.Remove(PIEPostStartHandle);
+                                        FCoreDelegates::OnPreExit.Remove(OnPreExitHandle);
+                                    });
+                                } 
+                            }),
+                        FCanExecuteAction(),
+                        FIsActionChecked::CreateLambda([]()
+                        {
+                            return sAnimationDebugChecked;
+                        }
+                        )),
+                        NAME_None,
+                        EUserInterfaceActionType::ToggleButton
+                    );
+                    
+                    static bool VODebugChecked = false;
+                    MenuBuilder.AddMenuEntry(
+                        FText::FromString(FString("VO Debug")), 
+                        FText(), 
+                        FSlateIcon(),
+                        FUIAction(FExecuteAction::CreateLambda([]()
+                            {
+                                VODebugChecked= !VODebugChecked;
+                                FWorldContext* WorldContext = IsValid(GEditor) ? GEditor->GetPIEWorldContext() : nullptr;
+                                UWorld*        PIEWorld = nullptr;
+                                if (WorldContext)
+                                {
+                                    PIEWorld = GEditor->GetPIEWorldContext()->World();
+                                }
+                      
+                                // During active PIE
+                                if (IsValid(PIEWorld))
+                                {
+                                    PIEWorld->GetFirstPlayerController()->ConsoleCommand(TEXT("ShowImGuiDebugWidgetByDrawFunctionName VoiceOverDispatchDebugImGUI"), true);
+                                }
+                                // No active PIE
+                                else
+                                {
+                                    FDelegateHandle PIEPostStartHandle = FEditorDelegates::PostPIEStarted.AddLambda([&PIEPostStartHandle](const bool)
+                                    {
+                                        FEditorDelegates::PostPIEStarted.Remove(PIEPostStartHandle);
+                                        UWorld* PIEWorld = GEditor->GetPIEWorldContext()->World();
+                                        if (IsValid(PIEWorld))
+                                        {
+                                            FDelegateHandle WorldMatchStartingHandle = PIEWorld->OnWorldMatchStarting
+                                                .AddLambda([PIEWorld, &WorldMatchStartingHandle]()
+                                                {
+                                                    PIEWorld->OnWorldMatchStarting.Remove(WorldMatchStartingHandle);
+                                                    if (VODebugChecked)
+                                                    {
+                                                        PIEWorld->GetFirstPlayerController()->ConsoleCommand(TEXT("ShowImGuiDebugWidgetByDrawFunctionName VoiceOverDispatchDebugImGUI"), true);
+                                                    }
+                                                }
+                                            );
+                                        }
+                                    });
+                                    FDelegateHandle OnPreExitHandle = FCoreDelegates::OnPreExit.AddLambda([&PIEPostStartHandle, &OnPreExitHandle]()
+                                    {
+                                        FEditorDelegates::PostPIEStarted.Remove(PIEPostStartHandle);
+                                        FCoreDelegates::OnPreExit.Remove(OnPreExitHandle);
+                                    });
+                                }    
+                            }),
+                        FCanExecuteAction(),
+                        FIsActionChecked::CreateLambda([]()
+                        {
+                            return VODebugChecked;
+                        }
+                        )),
+                        NAME_None,
+                        EUserInterfaceActionType::ToggleButton
+                    );
 					MenuBuilder.EndSection();
+ #endif
 				}
 			}
 		}
@@ -113,11 +328,11 @@ void FImGuiToolsEditorElements::RegisterElements()
 	};
 
 	if (GetDefault<UImGuiToolsDeveloperSettings>()->DisplayEditorButton)
-	{
-		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+    {
+        FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 
-		TSharedPtr<FExtender> NewToolbarExtender = MakeShareable(new FExtender);
-		NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
+        TSharedPtr <FExtender> NewToolbarExtender = MakeShareable(new FExtender);
+        NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
 
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
 	}

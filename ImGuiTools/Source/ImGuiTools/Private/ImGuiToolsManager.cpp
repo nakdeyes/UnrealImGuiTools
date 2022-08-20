@@ -4,6 +4,7 @@
 
 #include "ImGuiToolsDeveloperSettings.h"
 #include "Tools/ImGuiActorComponentDebugger.h"
+#include "Tools/ImGuiCDOExplorer.h"
 #include "Tools/ImGuiFileLoadDebugger.h"
 #include "Tools/ImGuiMemoryDebugger.h"
 
@@ -70,6 +71,7 @@ void FImGuiToolsManager::InitPluginTools()
 {
 	static const FName PluginToolsNamespace = TEXT("Included Plugin Tools");
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiActorComponentDebugger()), PluginToolsNamespace);
+    RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiCDOExplorer()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiFileLoadDebugger()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiMemoryDebugger()), PluginToolsNamespace);
 }
