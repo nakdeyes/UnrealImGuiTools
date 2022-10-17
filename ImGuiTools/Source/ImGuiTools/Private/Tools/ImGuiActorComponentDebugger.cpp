@@ -2,7 +2,8 @@
 
 #include "ImGuiActorComponentDebugger.h"
 
-#include "ImGuiUtils.h"
+#include "Utils/ClassHierarchyInfo.h"
+#include "Utils/ImGuiUtils.h"
 
 #include <imgui.h>
 #include <EngineUtils.h>
@@ -24,37 +25,6 @@ namespace ImGuiActorCompUtils
 		return Comp->GetIsReplicated()
 			? FString::Printf(TEXT("true - %s"), *StaticEnum<ENetRole>()->GetNameStringByValue(Comp->GetOwnerRole()))
 			: FString(TEXT("false"));
-	}
-
-	void DrawClassHierarchy(UObject* Obj, UClass* TerminatingParentClass = UObject::StaticClass())
-	{
-		UClass* CurClass = Obj->GetClass();
-		TArray<UClass*> ClassHierarchy;
-		ClassHierarchy.Add(CurClass);
-		while (CurClass && CurClass != TerminatingParentClass)
-		{
-			CurClass = CurClass->GetSuperClass();
-			ClassHierarchy.Add(CurClass);
-		}
-
-		int j = 0;
-		for (int i = ClassHierarchy.Num() - 1; i >= 0; --i)
-		{
-			if (UClass* Class = ClassHierarchy[i])
-			{
-				const bool FirstEntry = (j++ == 0);
-				if (FirstEntry)
-				{
-					ImGui::Text("%s", Ansi(*Class->GetName()));
-				}
-				else
-				{
-					ImGui::NewLine();
-					ImGui::SameLine(j * 8);
-					ImGui::Text("|-> %s", Ansi(*Class->GetName()));
-				}
-			}
-		}
 	}
 
 	void DrawPropertyValue(FProperty* Prop, void* Obj)
@@ -343,7 +313,7 @@ namespace ImGuiActorCompUtils
 
 		if (ImGui::CollapsingHeader("Class Hierarchy"))
 		{
-			DrawClassHierarchy(Act, AActor::StaticClass());
+			ImGuiTools::DrawClassHierarchy(Act, AActor::StaticClass());
 		}
 
 		if (ImGui::CollapsingHeader("UProperties"))
@@ -431,7 +401,7 @@ namespace ImGuiActorCompUtils
 
 		if (ImGui::CollapsingHeader("Class Hierarchy"))
 		{
-			DrawClassHierarchy(Comp, UActorComponent::StaticClass());
+			ImGuiTools::DrawClassHierarchy(Comp, UActorComponent::StaticClass());
 		}
 
 		if (ImGui::CollapsingHeader("UProperties"))
@@ -440,9 +410,53 @@ namespace ImGuiActorCompUtils
 		}
 	}
 
-	// Draw ImGui for this cached class - Actor version - provide a pointer to an optional parent container to draw Child classes
-	void CachedClass_DrawImGui_Actor(FCachedClassInfo& CachedClassInfo, TArray<TWeakObjectPtr<AActor>>& ActorWindows, TArray<FCachedClassInfo>* OptionalParentContainer = nullptr, bool ForceOpen = false, bool ForceOpenChildren = false)
+	bool CachedClass_DoesAnyDescendantPassFilter(FCachedClassInfo& CachedClassInfo, ImGuiTextFilter& ClassFilter, TArray<FCachedClassInfo>& ParentContainer)
 	{
+		if (ClassFilter.PassFilter(Ansi(*CachedClassInfo.Class->GetName())))
+		{
+			// main class passes filter, we can just say we pass the filter
+			return true;
+		}
+		
+		// Check for child classes passing the filter
+		for (int ChildClassIndex : CachedClassInfo.ChildClassIndicies)
+		{
+			FCachedClassInfo& ChildCachedInfo = ParentContainer[ChildClassIndex];
+			if (CachedClass_DoesAnyDescendantPassFilter(ChildCachedInfo, ClassFilter, ParentContainer))
+			{
+				return true;
+			}
+		}
+
+		// nothing passed filter. we fail!
+		return false;
+	}
+
+	// Draw ImGui for this cached class - Actor version - provide a pointer to an optional parent container to draw Child classes
+	void CachedClass_DrawImGui_Actor(FCachedClassInfo& CachedClassInfo, TArray<TWeakObjectPtr<AActor>>& ActorWindows, ImGuiTextFilter& ClassFilter, TArray<FCachedClassInfo>* OptionalParentContainer = nullptr, bool ForceOpen = false, bool ForceOpenChildren = false)
+	{
+		// Check to see if we should draw ourselves
+		if (OptionalParentContainer)
+		{
+			// Hierarchical view.. draw ourselves if this class or any descendants pass name filter
+			if (!CachedClass_DoesAnyDescendantPassFilter(CachedClassInfo, ClassFilter, *OptionalParentContainer))
+			{
+				return;
+			}
+		}
+		else
+		{
+			// Non-Hierarchical view.. Draw ourselves if we pass name filter and we have child actors
+			if (CachedClassInfo.Objects.Num() == 0)
+			{
+				return;
+			}
+			if (!ClassFilter.PassFilter(Ansi(*CachedClassInfo.Class->GetName())))
+			{
+				return;
+			}
+		}
+
 		static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
 		ImGuiTreeNodeFlags node_flags = base_flags;
 		if (ForceOpen)
@@ -494,7 +508,7 @@ namespace ImGuiActorCompUtils
 				// If we were provided an optional parent container, we can display classes in hierarchy
 				for (int ChildClassIndex : CachedClassInfo.ChildClassIndicies)
 				{
-                    CachedClass_DrawImGui_Actor(ParentContainer[ChildClassIndex], ActorWindows, OptionalParentContainer, (CachedClassInfo.Objects.Num() == 0) || ForceOpenChildren, ForceOpenChildren);
+                    CachedClass_DrawImGui_Actor(ParentContainer[ChildClassIndex], ActorWindows, ClassFilter, OptionalParentContainer, (CachedClassInfo.Objects.Num() == 0) || ForceOpenChildren, ForceOpenChildren);
 				}
 			}
 
@@ -562,7 +576,7 @@ namespace ImGuiActorCompUtils
 
     enum class EClassSortType : int
     {
-        Alphabetical,
+        Alphabetical = 0,
         ActorCount
     };
 
@@ -883,10 +897,41 @@ namespace ImGuiActorCompUtils
 			if (ImGui::BeginTabItem(Ansi(*World->GetDebugDisplayName())))
 			{
 
-				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("ActorHeader##%s"), *World->GetDebugDisplayName())), ImVec2(0.0f, 80.0f), true);
-				ImGui::Text("%s", Ansi(*World->GetDebugDisplayName()));
+				ImGui::BeginChild(Ansi(*FString::Printf(TEXT("ActorHeader##%s"), *World->GetDebugDisplayName())), ImVec2(0, 110.0f), true);
 
-                ImGui::Separator();
+				ImGui::Columns(2, 0, false);
+
+				static ImGuiTextFilter ActorClassFilter;
+				static ImGuiTextFilter ActorNameFilter;
+				static bool ActorClassFilterEnabled = true;
+				static bool ActorNameFilterEnabled = true;
+				ImGui::Text("Class Filter"); ImGui::SameLine();
+				ImGui::Checkbox("##ActorClassFilterEnabled", &ActorClassFilterEnabled); ImGui::SameLine();
+				ActorClassFilter.Draw();
+
+				ImGui::NextColumn();
+
+				ImGui::Text("View Style:"); ImGui::SameLine();
+				static int ViewStyleComboValue = WorldSettings.ClassHierarchy ? 0 : 1;
+				ImGui::Combo("##ViewStyleCombo", &ViewStyleComboValue, "Hierarchical\0Flat List");
+				WorldSettings.ClassHierarchy = (ViewStyleComboValue == 0);
+
+				ImGui::NextColumn();
+
+				ImGui::Text(" Name Filter"); ImGui::SameLine();
+				ImGui::Checkbox("##ActorNameFilterEnabled", &ActorNameFilterEnabled); ImGui::SameLine();
+				ActorNameFilter.Draw();
+
+				ImGui::NextColumn();
+
+				ImGui::Text(" Sort Type:"); ImGui::SameLine();
+				static int SortTypeComboValue = (int)WorldSettings.ClassSortType;
+				ImGui::Combo("##SortTypeCombo", &SortTypeComboValue, "Alphabetical\0Actor Count");
+				WorldSettings.ClassSortType = (EClassSortType)SortTypeComboValue;
+
+				ImGui::Separator();
+                
+				ImGui::Columns(0);
 
                 // layout config
                 static const float ActorCountColWidth = 60.0f;
@@ -947,7 +992,7 @@ namespace ImGuiActorCompUtils
 					if (ClassInfo)
 					{
 						// Draw just the AActor class info and rely on it to draw all it's children.
-                        CachedClass_DrawImGui_Actor(*ClassInfo, ActorWindows, &ActorClassInfos, true);
+                        CachedClass_DrawImGui_Actor(*ClassInfo, ActorWindows, ActorClassFilter, &ActorClassInfos, true, true);
 					}
 				}
 				else
@@ -955,7 +1000,7 @@ namespace ImGuiActorCompUtils
 					// Draw as flat list
 					for (ImGuiActorCompUtils::FCachedClassInfo& ClassInfo : ActorClassInfos)
 					{
-                        CachedClass_DrawImGui_Actor(ClassInfo, ActorWindows);
+                        CachedClass_DrawImGui_Actor(ClassInfo, ActorWindows, ActorClassFilter, nullptr, true);
 					}
 				}
                 SetColumnWidths();
@@ -1127,7 +1172,7 @@ void FImGuiActorComponentDebugger::ImGuiUpdate(float DeltaTime)
     {
 		if (ImGui::BeginTabItem("Actors"))
 		{
-			if (ImGui::BeginTabBar("WorldTabs", tab_bar_flags))
+			if (ImGui::BeginTabBar("ActorWorldTabs", tab_bar_flags))
 			{
 				for (ImGuiActorCompUtils::FCachedWorldInfo& WorldInfo : CachedWorlds.WorldInfos)
 				{
@@ -1143,7 +1188,7 @@ void FImGuiActorComponentDebugger::ImGuiUpdate(float DeltaTime)
 		}
 		if (ImGui::BeginTabItem("Components"))
 		{
-			if (ImGui::BeginTabBar("WorldTabs", tab_bar_flags))
+			if (ImGui::BeginTabBar("CompWorldTabs", tab_bar_flags))
 			{
 				for (ImGuiActorCompUtils::FCachedWorldInfo& WorldInfo : CachedWorlds.WorldInfos)
 				{

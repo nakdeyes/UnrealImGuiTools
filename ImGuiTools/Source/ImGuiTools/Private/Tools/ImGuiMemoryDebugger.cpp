@@ -2,7 +2,7 @@
 
 #include "ImGuiMemoryDebugger.h"
 
-#include "ImGuiUtils.h"
+#include "Utils/ImGuiUtils.h"
 
 #include <Components/PrimitiveComponent.h>
 #include <Engine/TextureCube.h>
@@ -104,44 +104,48 @@ namespace MemDebugUtils
 		int Instances = 0;
 	};
 
-	struct FShowCols
+	namespace EColumnTypes
 	{
-		bool Instances = true;
-		bool TotalMem = true;
-		bool UnknownMem = true;
-		bool DedSysMem = true;
-		bool DedVidMem = true;
-		bool SharedSysMem = false;
-		bool SharedVidMem = false;
-
-		int CachedColCount = 0;
-
-		int CacheColCount()
+		enum Type
 		{
-			CachedColCount = 0;
-			if (Instances) { ++CachedColCount; }
-			if (TotalMem) { ++CachedColCount; }
-			if (UnknownMem) { ++CachedColCount; }
-			if (DedSysMem) { ++CachedColCount; }
-			if (DedVidMem) { ++CachedColCount; }
-			if (SharedSysMem) { ++CachedColCount; }
-			if (SharedVidMem) { ++CachedColCount; }
-			return CachedColCount;
-		}
-	};
+			Instances = 0,
+			TotalMem,
+			UnknownMem,
+			DedSysMem,
+			DedVidMem,
+			SharedSysMem,
+			SharedVidMem,
 
-	enum EMemSortType
+			COUNT
+		};
+
+		static bool DefaultVisibility[Type::COUNT] =
+		{
+			/*Instances*/		true,
+			/*TotalMem*/        true,
+			/*UnknownMem*/      true,
+			/*DedSysMem*/       true,
+			/*DedVidMem*/       true,
+			/*SharedSysMem*/    false,
+			/*SharedVidMem*/    false,
+		};
+	}	// namespace EColumnTypes
+
+	namespace EMemSortType
 	{
-		None,
-		Alpha,
-		Instances,
-		TotalMem,
-		UnknownMem,
-		DedSysMem,
-		DedVidMem,
-		SharedSysMem,
-		SharedVidMem,
-	};
+		enum Type
+		{
+			None,
+			Alpha,
+			Instances,
+			TotalMem,
+			UnknownMem,
+			DedSysMem,
+			DedVidMem,
+			SharedSysMem,
+			SharedVidMem,
+		};
+	}	// namespace EMemSortType
 
 	struct FCachedClassTree
 	{
@@ -232,7 +236,7 @@ namespace MemDebugUtils
 			}
 		}
 
-		void SortBy(EMemSortType SortType)
+		void SortBy(EMemSortType::Type SortType)
 		{
 			switch(SortType)
 			{
@@ -313,8 +317,8 @@ namespace MemDebugUtils
 		TWeakObjectPtr<UClass> Class;
 		FMemInfo MemInfo;
 		int Instances = 0;
-		EMemSortType SortType = EMemSortType::TotalMem;
-		FShowCols ShowCols;
+		EMemSortType::Type SortType = EMemSortType::TotalMem;
+		ImGuiTools::Utils::FShowCols ShowCols = ImGuiTools::Utils::FShowCols(EColumnTypes::COUNT, &EColumnTypes::DefaultVisibility[0]);
 		TArray<FInstanceInspectorInstanceInfo> InstanceInfos;
 		ImGuiTextFilter NameFilter;
 		bool bAutoRefresh = false;	// option to auto refresh the instance view
@@ -363,7 +367,7 @@ namespace MemDebugUtils
 			SortBy(SortType);
 		}
 
-		void SortBy(EMemSortType InSortType)
+		void SortBy(EMemSortType::Type InSortType)
 		{
 			SortType = InSortType;
 			switch (SortType)
@@ -406,7 +410,7 @@ namespace MemDebugUtils
 
 	TArray<FInstanceInspectorInfo> InstanceInspectors;
 	TWeakObjectPtr<UClass> PopupClass;
-	bool DrawClassChildTreeIndex(FCachedClassTree& ClassTree, int Index, bool FilterZeroInstances, ImGuiTextFilter& ClassNameFilter, FShowCols& ShowCols)
+	bool DrawClassChildTreeIndex(FCachedClassTree& ClassTree, int Index, bool FilterZeroInstances, ImGuiTextFilter& ClassNameFilter, ImGuiTools::Utils::FShowCols& ShowCols)
 	{
 		FCachedClassInfo& CachedClassInfo = ClassTree.Classes[Index];
 		if (CachedClassInfo.Class.IsStale() || !CachedClassInfo.Class.IsValid())
@@ -446,7 +450,7 @@ namespace MemDebugUtils
 		}
 
 		const bool TreeOpen = ImGui::TreeNodeEx((void*)CachedClassInfo.Class.Get(), node_flags, "%s%s", Ansi(*CachedClassInfo.Class->GetName()), CachedClassInfo.bAbstract ? "(abstract)" : "");
-		ImGui::SameLine(ImGui::GetWindowWidth() - ((ShowCols.CachedColCount + 1) * 110.0f) + 44.0f);
+		ImGui::SameLine(ImGui::GetWindowWidth() - ((ShowCols.GetCachedShowColCount() + 1) * 110.0f) + 44.0f);
 
 		if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Inspect##%.54ls"), *CachedClassInfo.Class->GetName()))))
 		{
@@ -455,13 +459,13 @@ namespace MemDebugUtils
 		}
 
 		ImGui::NextColumn();
-		if (ShowCols.Instances) { ImGui::Text("%d", CachedClassInfo.Instances);ImGui::NextColumn(); }
-		if (ShowCols.TotalMem) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
-		if (ShowCols.UnknownMem) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
-		if (ShowCols.DedSysMem) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
-		if (ShowCols.DedVidMem) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.DedVidMemoryMB); ImGui::NextColumn(); }
-		if (ShowCols.SharedSysMem) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.SharedSysMemoryMB); ImGui::NextColumn(); }
-		if (ShowCols.SharedVidMem) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.SharedVidMemoryMB); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::Instances)) { ImGui::Text("%d", CachedClassInfo.Instances);ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::DedVidMem)) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.DedVidMemoryMB); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::SharedSysMem)) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.SharedSysMemoryMB); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(EColumnTypes::SharedVidMem)) { ImGui::Text("%.04f MB", CachedClassInfo.MemInfo.SharedVidMemoryMB); ImGui::NextColumn(); }
 		ImGui::Separator();
 
 		if (TreeOpen)
@@ -514,38 +518,38 @@ namespace MemDebugUtils
 		if (ImGui::RadioButton("##Alpha", InstInspInfo.SortType == MemDebugUtils::EMemSortType::Alpha)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::Alpha); } ImGui::SameLine();
 		ImGui::Text("Alpha"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##TotalMemCh", &InstInspInfo.ShowCols.TotalMem); ImGui::SameLine();
-		if (InstInspInfo.ShowCols.TotalMem)
+		ImGui::Checkbox("##TotalMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)); ImGui::SameLine();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem))
 		{ if (ImGui::RadioButton("##TotalMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::TotalMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::TotalMem); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("TotalMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##UnknownMemCh", &InstInspInfo.ShowCols.UnknownMem); ImGui::SameLine();
-		if (InstInspInfo.ShowCols.UnknownMem)
+		ImGui::Checkbox("##UnknownMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)); ImGui::SameLine();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem))
 		{ if (ImGui::RadioButton("##UnknownMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::UnknownMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::UnknownMem); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("UnknownMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##DedSysMemCh", &InstInspInfo.ShowCols.DedSysMem); ImGui::SameLine();
-		if (InstInspInfo.ShowCols.DedSysMem)
+		ImGui::Checkbox("##DedSysMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)); ImGui::SameLine();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem))
 		{ if (ImGui::RadioButton("##DedSysMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::DedSysMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::DedSysMem); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("DedSysMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##DedVidMemCh", &InstInspInfo.ShowCols.DedVidMem); ImGui::SameLine();
-		if (InstInspInfo.ShowCols.DedVidMem)
+		ImGui::Checkbox("##DedVidMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedVidMem)); ImGui::SameLine();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedVidMem))
 		{ if (ImGui::RadioButton("##DedVidMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::DedVidMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::DedVidMem); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("DedVidMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##SharedSysMemCh", &InstInspInfo.ShowCols.SharedSysMem); ImGui::SameLine();
-		if (InstInspInfo.ShowCols.SharedSysMem)
+		ImGui::Checkbox("##SharedSysMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedSysMem)); ImGui::SameLine();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedSysMem))
 		{ if (ImGui::RadioButton("##SharedSysMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::SharedSysMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::SharedSysMem); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("SharedSysMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##SharedVidMemCh", &InstInspInfo.ShowCols.SharedVidMem); ImGui::SameLine();
-		if (InstInspInfo.ShowCols.SharedVidMem)
+		ImGui::Checkbox("##SharedVidMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedVidMem)); ImGui::SameLine();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedVidMem))
 		{ if (ImGui::RadioButton("##SharedVidMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::SharedVidMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::SharedVidMem); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("SharedVidMem"); ImGui::NextColumn();
@@ -564,8 +568,8 @@ namespace MemDebugUtils
 		ImGui::Separator();
 
 		static constexpr int ColumnCount = 7;
-		InstInspInfo.ShowCols.Instances = false; // gross: Instances is disabled for this view so ensure it is off so CacheColCount() is contextually correct
-		const int VisibleColCount = InstInspInfo.ShowCols.CacheColCount() + 1;
+		InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Instances) = false; // gross: Instances is disabled for this view so ensure it is off so CacheColCount() is contextually correct
+		const int VisibleColCount = InstInspInfo.ShowCols.CacheShowColCount() + 1;
 		ImGui::Columns(VisibleColCount, "ObjInstCol");
 		static float ColumnWidths[ColumnCount];
 		static constexpr float InfoColWidth = 110.0f;
@@ -582,12 +586,12 @@ namespace MemDebugUtils
 			}
 		}
 		ImGui::Text("Object"); ImGui::NextColumn();
-		if (InstInspInfo.ShowCols.TotalMem) { ImGui::Text("Total Mem"); ImGui::NextColumn(); }
-		if (InstInspInfo.ShowCols.UnknownMem) {	ImGui::Text("Unknown Mem"); ImGui::NextColumn(); }
-		if (InstInspInfo.ShowCols.DedSysMem) { ImGui::Text("DedSys Mem"); ImGui::NextColumn(); }
-		if (InstInspInfo.ShowCols.DedVidMem) { ImGui::Text("DedVid Mem"); ImGui::NextColumn(); }
-		if (InstInspInfo.ShowCols.SharedSysMem) { ImGui::Text("SharedSys Mem"); ImGui::NextColumn(); }
-		if (InstInspInfo.ShowCols.SharedVidMem) { ImGui::Text("SharedVid Mem"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("Total Mem"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("Unknown Mem"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("DedSys Mem"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedVidMem)) { ImGui::Text("DedVid Mem"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedSysMem)) { ImGui::Text("SharedSys Mem"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedVidMem)) { ImGui::Text("SharedVid Mem"); ImGui::NextColumn(); }
 		ImGui::Columns(1);
 		ImGui::EndChild();	  // "InstLabel"
 
@@ -613,12 +617,12 @@ namespace MemDebugUtils
 					ImGui::Text("STALE/INVALID PTR");
 				}
 				ImGui::NextColumn();
-				if (InstInspInfo.ShowCols.TotalMem) { ImGui::Text("%.04f MB", InspInstance.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.UnknownMem) { ImGui::Text("%.04f MB", InspInstance.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.DedSysMem) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.DedVidMem) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedVidMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.SharedSysMem) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedSysMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.SharedVidMem) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedVidMemoryMB); ImGui::NextColumn(); }
+				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
+				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
+				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
+				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedVidMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedVidMemoryMB); ImGui::NextColumn(); }
+				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedSysMemoryMB); ImGui::NextColumn(); }
+				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedVidMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedVidMemoryMB); ImGui::NextColumn(); }
 			}
 		}
 		ImGui::Columns(1);
@@ -887,7 +891,7 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 
 	if (ImGui::CollapsingHeader("Object Memory"))
 	{
-		static MemDebugUtils::EMemSortType SortMode = MemDebugUtils::EMemSortType::TotalMem;
+		static MemDebugUtils::EMemSortType::Type SortMode = MemDebugUtils::EMemSortType::TotalMem;
 		static MemDebugUtils::FCachedClassTree CachedClassTree;
 		static bool IncludeCDO = false;
 		CachedClassTree.TryCacheEntries();
@@ -905,49 +909,49 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 		ImGui::BeginChild("IncSort", ImVec2(0.0f, 90.0f));
 		ImGui::Columns(2);
 		static const float RadWidth = 54.0f;
-		static MemDebugUtils::FShowCols ShowCols;
+		static ImGuiTools::Utils::FShowCols ShowCols(MemDebugUtils::EColumnTypes::COUNT, &MemDebugUtils::EColumnTypes::DefaultVisibility[0]);
 		ImGui::SameLine(27.0f);
 		if (ImGui::RadioButton("##Alpha", SortMode == MemDebugUtils::EMemSortType::Alpha)) { SortMode = MemDebugUtils::EMemSortType::Alpha; CachedClassTree.SortBy(SortMode); } ImGui::SameLine();
 		ImGui::Text("Alpha"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##InstancesCh", &ShowCols.Instances); ImGui::SameLine();
-		if (ShowCols.Instances)
+		ImGui::Checkbox("##InstancesCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::Instances)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::Instances))
 		{	if (ImGui::RadioButton("##Instances", SortMode == MemDebugUtils::EMemSortType::Instances)) { SortMode = MemDebugUtils::EMemSortType::Instances; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("Instances"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##TotalMemCh", &ShowCols.TotalMem); ImGui::SameLine();
-		if (ShowCols.TotalMem)
+		ImGui::Checkbox("##TotalMemCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::TotalMem)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::TotalMem))
 		{ if (ImGui::RadioButton("##TotalMem", SortMode == MemDebugUtils::EMemSortType::TotalMem)) { SortMode = MemDebugUtils::EMemSortType::TotalMem; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("TotalMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##UnknownMemCh", &ShowCols.UnknownMem); ImGui::SameLine();
-		if (ShowCols.UnknownMem)
+		ImGui::Checkbox("##UnknownMemCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::UnknownMem)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::UnknownMem))
 		{	if (ImGui::RadioButton("##UnknownMem", SortMode == MemDebugUtils::EMemSortType::UnknownMem)) { SortMode = MemDebugUtils::EMemSortType::UnknownMem; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("UnknownMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##DedSysMemCh", &ShowCols.DedSysMem); ImGui::SameLine();
-		if (ShowCols.DedSysMem)
+		ImGui::Checkbox("##DedSysMemCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::DedSysMem)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::DedSysMem))
 		{	if (ImGui::RadioButton("##DedSysMem", SortMode == MemDebugUtils::EMemSortType::DedSysMem)) { SortMode = MemDebugUtils::EMemSortType::DedSysMem; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("DedSysMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##DedVidMemCh", &ShowCols.DedVidMem); ImGui::SameLine();
-		if (ShowCols.DedVidMem)
+		ImGui::Checkbox("##DedVidMemCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::DedVidMem)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::DedVidMem))
 		{	if (ImGui::RadioButton("##DedVidMem", SortMode == MemDebugUtils::EMemSortType::DedVidMem)) { SortMode = MemDebugUtils::EMemSortType::DedVidMem; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("DedVidMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##SharedSysMemCh", &ShowCols.SharedSysMem); ImGui::SameLine();
-		if (ShowCols.SharedSysMem)
+		ImGui::Checkbox("##SharedSysMemCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::SharedSysMem)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::SharedSysMem))
 		{	if (ImGui::RadioButton("##SharedSysMem", SortMode == MemDebugUtils::EMemSortType::SharedSysMem)) { SortMode = MemDebugUtils::EMemSortType::SharedSysMem; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("SharedSysMem"); ImGui::NextColumn();
 
-		ImGui::Checkbox("##SharedVidMemCh", &ShowCols.SharedVidMem); ImGui::SameLine();
-		if (ShowCols.SharedVidMem)
+		ImGui::Checkbox("##SharedVidMemCh", &ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::SharedVidMem)); ImGui::SameLine();
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::SharedVidMem))
 		{	if (ImGui::RadioButton("##SharedVidMem", SortMode == MemDebugUtils::EMemSortType::SharedVidMem)) { SortMode = MemDebugUtils::EMemSortType::SharedVidMem; CachedClassTree.SortBy(SortMode); } ImGui::SameLine(); }
 		else { ImGui::SameLine(RadWidth); }
 		ImGui::Text("SharedVidMem"); ImGui::NextColumn();
@@ -965,7 +969,7 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 		
 		ImGui::BeginChild("ClassListHeader", ImVec2(0, 30.0f), true);
 		static constexpr int ColumnCount = 8;
-		const int VisibleColCount = ShowCols.CacheColCount() + 1;
+		const int VisibleColCount = ShowCols.CacheShowColCount() + 1;
 		ImGui::Columns(VisibleColCount, "ObjMemCol");
 		static float ColumnWidths[ColumnCount];
 		static constexpr float InfoColWidth = 110.0f;
@@ -982,13 +986,13 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 			}
 		}
 		ImGui::Text("Class"); ImGui::NextColumn();
-		if (ShowCols.Instances) { ImGui::Text("InstanceCount"); ImGui::NextColumn(); }
-		if (ShowCols.TotalMem) { ImGui::Text("Total Mem"); ImGui::NextColumn(); }
-		if (ShowCols.UnknownMem) { ImGui::Text("Unknown Mem"); ImGui::NextColumn(); }
-		if (ShowCols.DedSysMem) { ImGui::Text("DedSys Mem"); ImGui::NextColumn(); }
-		if (ShowCols.DedVidMem) { ImGui::Text("DedVid Mem"); ImGui::NextColumn(); }
-		if (ShowCols.SharedSysMem) { ImGui::Text("SharedSys Mem"); ImGui::NextColumn(); }
-		if (ShowCols.SharedVidMem) { ImGui::Text("SharedVid Mem"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::Instances)) { ImGui::Text("InstanceCount"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::TotalMem)) { ImGui::Text("Total Mem"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::UnknownMem)) { ImGui::Text("Unknown Mem"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::DedSysMem)) { ImGui::Text("DedSys Mem"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::DedVidMem)) { ImGui::Text("DedVid Mem"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::SharedSysMem)) { ImGui::Text("SharedSys Mem"); ImGui::NextColumn(); }
+		if (ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::SharedVidMem)) { ImGui::Text("SharedVid Mem"); ImGui::NextColumn(); }
 		ImGui::Columns(1);
 		ImGui::EndChild(); // "ClassListHeader"
 

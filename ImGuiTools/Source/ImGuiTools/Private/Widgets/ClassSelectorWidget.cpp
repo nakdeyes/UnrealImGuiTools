@@ -2,57 +2,96 @@
 
 #include "Widgets/ClassSelectorWidget.h"
 
-#include "ImGuiUtils.h"
-
-#include "AssetRegistry/AssetRegistryModule.h"
+#include "Utils/ImGuiUtils.h"
 
 #pragma optimize ("", off)
 
 namespace ClassSelectorUtil
 {
-    static bool LoadClasses = false;
-
-    void SortCachedClassInfo(ImGuiTools::HierarchicalClassInfo& ClassInfo, UClass* Class, TArray<UClass*>& ChildClasses)
+    static bool ClassPassesNameFilter(ImGuiTools::FHierarchicalClassInfo& ClassInfo, ImGuiTextFilter& ClassNameFilter)
     {
-        ClassInfo.mClass = Class;
-
-        // Iterate backward through potential child classes, finding direct descendants
-        for (int i = ChildClasses.Num() - 1; i >= 0; --i)
+        // We pass if our class name passes filter...
+        if (ClassNameFilter.PassFilter(Ansi(*ClassInfo.mClass->GetFName().ToString())))
         {
-            if (UClass* PotentialChildClass = ChildClasses[i])
+            return true;
+        }
+        
+        // .. or if any unloaded classes match filter
+        for (ImGuiTools::FHierarchicalClassInfo::UnloadedClassInfo& UnloadedClassInfo : ClassInfo.mUnloadedChildren)
+        {
+            if (ClassNameFilter.PassFilter(Ansi(*UnloadedClassInfo.ClassName)))
             {
-                if (PotentialChildClass->GetSuperClass() == Class)
-                {
-                    ImGuiTools::HierarchicalClassInfo& ChildClassInfo = ClassInfo.mChildren.AddDefaulted_GetRef();
-                    SortCachedClassInfo(ChildClassInfo, PotentialChildClass, ChildClasses);
-                }
+                return true;
             }
         }
 
-        // Sort child classes alphabetically
-        ClassInfo.mChildren.Sort([](const ImGuiTools::HierarchicalClassInfo& A, const ImGuiTools::HierarchicalClassInfo& B) {
-            return A.mClass->GetFName().Compare(B.mClass->GetFName()) < 0;
-        });
+        // .. or finally, any loaded children and their potential children pass filter
+        for (ImGuiTools::FHierarchicalClassInfo& LoadedClassInfo : ClassInfo.mLoadedChildren)
+        {
+            if (ClassPassesNameFilter(LoadedClassInfo, ClassNameFilter))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    void DrawClass(ImGuiTools::HierarchicalClassInfo& ClassInfo, TWeakObjectPtr<UClass>& OUT_SelectedUClass)
+    static void DrawClass(ImGuiTools::FHierarchicalClassInfo& ClassInfo, TWeakObjectPtr<UClass>& OUT_SelectedUClass, ImGuiTools::FClassSelector& ClassSelector)
     {
-        if (ImGui::TreeNode(Ansi(*ClassInfo.mClass->GetFName().ToString())))
+        
+        ImGuiTextFilter& ClassTextFilter = ClassSelector.GetClassNameFilter();
+        const bool InFilter = ClassPassesNameFilter(ClassInfo, ClassTextFilter);
+        if (!InFilter)
         {
-            ImGui::SameLine(ImGui::GetWindowWidth() - 130.0f);
-            if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Select##%s"), *ClassInfo.mClass->GetFName().ToString()))))
+            return;
+        }
+
+        bool TreeOpen = false;
+        if ((ClassInfo.mLoadedChildren.Num() == 0) && (ClassInfo.mUnloadedChildren.Num() == 0))
+        {
+            ImGui::Text("   %s", Ansi(*ClassInfo.mClass->GetFName().ToString()));
+        }
+        else
+        {
+            ImGuiTreeNodeFlags NodeFlags = ClassTextFilter.IsActive() ? ImGuiTreeNodeFlags_DefaultOpen : 0;
+            TreeOpen = ImGui::TreeNodeEx(Ansi(*ClassInfo.mClass->GetFName().ToString()), NodeFlags);
+        }
+        if (ClassInfo.mCachedAllUnloadedDecendants > 0)
+        {
+            ImGui::SameLine(ImGui::GetWindowWidth() - 180.0f);
+            if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load %d BPs##%s"), ClassInfo.mCachedAllUnloadedDecendants, *ClassInfo.mClass->GetFName().ToString()))))
             {
-                OUT_SelectedUClass = ClassInfo.mClass;
+                ClassInfo.LoadChildren();
+                ClassSelector.QueueReset();
             }
-            ImGui::SameLine();
-            if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load %d BP Children##%s"), *ClassInfo.mClass->GetFName().ToString()))))
+        }
+
+        ImGui::SameLine(ImGui::GetWindowWidth() - 80.0f);
+        if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Select##%s"), *ClassInfo.mClass->GetFName().ToString()))))
+        {
+            OUT_SelectedUClass = ClassInfo.mClass;
+        }
+
+        if (TreeOpen)
+        {
+            for (ImGuiTools::FHierarchicalClassInfo& LoadedChildInfo : ClassInfo.mLoadedChildren)
             {
-                OUT_SelectedUClass = ClassInfo.mClass;
+                DrawClass(LoadedChildInfo, OUT_SelectedUClass, ClassSelector);
             }
 
-            for (ImGuiTools::HierarchicalClassInfo& ChildInfo : ClassInfo.mChildren)
+            for (ImGuiTools::FHierarchicalClassInfo::UnloadedClassInfo& UnloadedChildInfo : ClassInfo.mUnloadedChildren)
             {
-                DrawClass(ChildInfo, OUT_SelectedUClass);
+                if (ClassSelector.GetClassNameFilter().PassFilter(Ansi(*UnloadedChildInfo.ClassName)))
+                {
+                    ImGui::TextColored(ImGuiTools::Colors::Purple, " Unloaded BP: %s", Ansi(*UnloadedChildInfo.ClassName), Ansi(*UnloadedChildInfo.SoftClassInfo.ToString()));
+					ImGui::SameLine(ImGui::GetWindowWidth() - 160.0f);
+					if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load##%s"), *UnloadedChildInfo.ClassName))))
+					{
+                        UnloadedChildInfo.SoftClassInfo.LoadSynchronous();
+                        ClassSelector.QueueReset();
+					}
+                }
             }
 
             ImGui::TreePop();
@@ -60,122 +99,52 @@ namespace ClassSelectorUtil
     }
 }
 
-ImGuiTools::UClassSelector::UClassSelector(UClass* ParentClass, FString SearchDirectory /*= FString(TEXT("/Game/"))*/, bool HierarchicalView /*= true*/)
+ImGuiTools::FClassSelector::FClassSelector(UClass* RootClass, FString SearchDirectory /*= FString(TEXT("/Game/"))*/, bool HierarchicalView /*= true*/)
 {
-    mParentClass = ParentClass;
-    mSearchDirectory = SearchDirectory;
     mHierarchicalView = HierarchicalView;
-    CacheUClasses();
+
+    mRootClassInfo.ResetToRootClass(RootClass, SearchDirectory);
 }
 
-void ImGuiTools::UClassSelector::Draw(const char* ID, ImVec2 Size)
+void ImGuiTools::FClassSelector::QueueReset()
 {
-    ImGui::BeginChild(ID, Size, true);
+    mResetQueued = true;
+}
 
-    ImGui::BeginChild(Ansi(*FString::Printf(TEXT("%s_Options"), ID)), ImVec2(0.0f, 36.0f));
-    ImGui::Checkbox("Load BP Classes", &ClassSelectorUtil::LoadClasses);
+void ImGuiTools::FClassSelector::Draw(const char* ID, ImVec2 Size)
+{
+    // Execute any queued resets from last frame
+    if (mResetQueued)
+    {
+        mResetQueued = false;
+        mRootClassInfo.Reset();
+    }
+
+    ImGui::BeginChild(ID, Size);
+
+    ImGui::BeginChild(Ansi(*FString::Printf(TEXT("%s_Options"), ID)), ImVec2(0.0f, 36.0f), true);
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Refresh Hierarchy"))
+    {
+        mRootClassInfo.Reset();
+    }
+    ImGui::SameLine();
+    ClassNameFilter.Draw();
     ImGui::EndChild();  // Options
 
-    ImGui::BeginChild(Ansi(*FString::Printf(TEXT("%s_Body"), ID)), ImVec2(0.0f, 0.0f));
-    ClassSelectorUtil::DrawClass(mClassInfo, mSelectedClass);
+    ImGui::BeginChild(Ansi(*FString::Printf(TEXT("%s_Body"), ID)), ImVec2(0.0f, 0.0f), true);
+    ClassSelectorUtil::DrawClass(mRootClassInfo.mRootClassInfo, mSelectedClass, *this);
     ImGui::EndChild();  // Body
 
     ImGui::EndChild();  // ID
 }
 
-UClass* ImGuiTools::UClassSelector::GetSelectedClass()
+UClass* ImGuiTools::FClassSelector::GetSelectedClass()
 {
     return mSelectedClass.Get();
 }
 
-void ImGuiTools::UClassSelector::CacheUClasses()
+ImGuiTextFilter& ImGuiTools::FClassSelector::GetClassNameFilter()
 {
-    // Load the asset registry module
-    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(FName("AssetRegistry"));
-    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
-    // The asset registry is populated asynchronously at startup, so there's no guarantee it has finished.
-    // This simple approach just runs a synchronous scan on the entire content directory.
-    TArray<FString> PathsToScan;
-    PathsToScan.Add(mSearchDirectory);
-    AssetRegistry.ScanPathsSynchronous(PathsToScan);
-
-    TArray<UClass*> ChildClasses;
-
-    // Get all native classes
-    for (TObjectIterator< UClass > ClassIt; ClassIt; ++ClassIt)
-    {
-        UClass* Class = *ClassIt;
-
-        // Only interested in native C++ classes
-        if (!Class->IsNative())
-        {
-            continue;
-        }
-
-        // Ignore deprecated
-        if (Class->HasAnyClassFlags(CLASS_Deprecated | CLASS_NewerVersionExists))
-        {
-            continue;
-        }
-
-        // Check this class is a subclass of Base
-        if (!Class->IsChildOf(mParentClass.Get()))
-        {
-            continue;
-        }
-
-        // Add this class
-        ChildClasses.Add(Class);
-    }
-
-    // Get all BP Classes
-    TSet<FName> DerivedNames;
-    {
-        TArray<FName> BaseNames;
-        BaseNames.Add(mParentClass->GetFName());
-
-        TSet<FName> Excluded;
-        AssetRegistry.GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
-    }
-
-    // Get all assets in the path, does not load them
-    TArray<FAssetData> ScriptAssetList;
-    AssetRegistry.GetAssetsByPath(*mSearchDirectory, ScriptAssetList, /*bRecursive=*/true);
-
-    // Iterate through all assets and find the appropriate ones.
-    for (const FAssetData& Asset : ScriptAssetList)
-    {
-        if (UClass* Class = Asset.GetClass())
-        {
-            if (Class == UBlueprint::StaticClass())
-            {
-                FString GeneratedClassPath;
-                if (Asset.GetTagValue(TEXT("GeneratedClass"), GeneratedClassPath))
-                {
-                    // Get class name and object path.
-                    const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPath);
-                    const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);
-
-                    if (DerivedNames.Contains(*ClassName))
-                    {
-                        // BP Class matches class name. Get the CDO of the generated BP class if possible.
-                        TSoftClassPtr<UObject> AssetSubClass = TSoftClassPtr<UObject>(FStringAssetReference(ClassObjectPath));
-                        
-                        if (ClassSelectorUtil::LoadClasses)
-                        {
-                            AssetSubClass.LoadSynchronous();
-                        }
-
-                        if (UClass* SubClassUClass = Cast<UClass>(AssetSubClass.TryGetDefaultObject()))
-                        {
-                            // Store using the path to the generated class
-                            ChildClasses.Add(AssetSubClass.Get());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    ClassSelectorUtil::SortCachedClassInfo(mClassInfo, mParentClass.Get(), ChildClasses);
+    return ClassNameFilter;
 }

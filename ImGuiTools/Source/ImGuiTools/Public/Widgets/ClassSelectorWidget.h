@@ -4,32 +4,28 @@
 
 #include <imgui.h>
 
+#include "Utils/ClassHierarchyInfo.h"
+
 // forward declarations
 class UClass;
 
 namespace ImGuiTools
 {
-    struct HierarchicalClassInfo
+    struct FClassSelector
     {
-        TWeakObjectPtr<UClass> mClass;
-        TArray<HierarchicalClassInfo> mChildren;
-    };
-
-    class UClassSelector
-    {
-    public:
-        UClassSelector(UClass* ParentClass, FString SearchDirectory = FString(TEXT("/Game/")), bool HierarchicalView = true);
+        FClassSelector(UClass* RootClass, FString SearchDirectory = FString(TEXT("/Game/")), bool HierarchicalView = true);
         void Draw(const char* ID, ImVec2 Size);
         UClass* GetSelectedClass();
+        ImGuiTextFilter& GetClassNameFilter();
+
+        // Queue a reset for the next draw
+        void QueueReset();
 
     private:
-        void CacheUClasses();
-
-    private:
-        HierarchicalClassInfo mClassInfo;
+        FHierarchicalRootClassInfo mRootClassInfo;
+        ImGuiTextFilter ClassNameFilter;
         TWeakObjectPtr<UClass> mSelectedClass;
-        TWeakObjectPtr<UClass> mParentClass;
-        FString mSearchDirectory;
-        bool mHierarchicalView;
+        bool mHierarchicalView = true;
+        bool mResetQueued = false;
     };
 }
