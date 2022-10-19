@@ -4,8 +4,6 @@
 
 #include "Utils/ImGuiUtils.h"
 
-#pragma optimize ("", off)
-
 namespace ClassSelectorUtil
 {
     static bool ClassPassesNameFilter(ImGuiTools::FHierarchicalClassInfo& ClassInfo, ImGuiTextFilter& ClassNameFilter)
