@@ -2,6 +2,10 @@
 
 #include "ImGuiMemoryDebugger.h"
 
+#if ENGINE_MAJOR_VERSION == 4
+#include "Misc/StreamingTextureLevelContext.h"	// StreamingTexture copy for UE 4.XX where this is not exported in engine. (fixed in UE5)
+#endif // #if ENGINE_MAJOR_VERSION == 4
+
 #include "Utils/ImGuiUtils.h"
 
 #include <Components/PrimitiveComponent.h>
@@ -215,8 +219,10 @@ namespace MemDebugUtils
 						ClassInfo.MemInfo.UnknownMemoryMB += (float)TrueResourceSize.GetUnknownMemoryBytes();
 						ClassInfo.MemInfo.DedSysMemoryMB += (float)TrueResourceSize.GetDedicatedSystemMemoryBytes();
 						ClassInfo.MemInfo.DedVidMemoryMB += (float)TrueResourceSize.GetDedicatedVideoMemoryBytes();
-						//ClassInfo.MemInfo.SharedSysMemoryMB += (float)TrueResourceSize.GetSharedSystemMemoryBytes();
-						//ClassInfo.MemInfo.SharedVidMemoryMB += (float)TrueResourceSize.GetSharedVideoMemoryBytes();
+#if ENGINE_MAJOR_VERSION == 4
+						ClassInfo.MemInfo.SharedSysMemoryMB += (float)TrueResourceSize.GetSharedSystemMemoryBytes();
+						ClassInfo.MemInfo.SharedVidMemoryMB += (float)TrueResourceSize.GetSharedVideoMemoryBytes();
+#endif // #if ENGINE_MAJOR_VERSION == 4
 						
 						++ClassInfo.Instances;
 					}
@@ -344,14 +350,18 @@ namespace MemDebugUtils
 				const float InstUnknownMemMB = (float)TrueResourceSize.GetUnknownMemoryBytes() / 1024.0f / 1024.0f;
 				const float InstDedSysMemMB = (float)TrueResourceSize.GetDedicatedSystemMemoryBytes() / 1024.0f / 1024.0f;
 				const float InstDedVidMemMB = (float)TrueResourceSize.GetDedicatedVideoMemoryBytes() / 1024.0f / 1024.0f;
-				//const float InstSharedSysMemMB = (float)TrueResourceSize.GetSharedSystemMemoryBytes() / 1024.0f / 1024.0f;
-				//const float InstSharedVidMemMB = (float)TrueResourceSize.GetSharedVideoMemoryBytes() / 1024.0f / 1024.0f;
+#if ENGINE_MAJOR_VERSION == 4
+				const float InstSharedSysMemMB = (float)TrueResourceSize.GetSharedSystemMemoryBytes() / 1024.0f / 1024.0f;
+				const float InstSharedVidMemMB = (float)TrueResourceSize.GetSharedVideoMemoryBytes() / 1024.0f / 1024.0f;
+#endif // #if ENGINE_MAJOR_VERSION == 4
 				MemInfo.TotalMemoryMB += InstTotalMemMB;
 				MemInfo.UnknownMemoryMB += InstUnknownMemMB;
 				MemInfo.DedSysMemoryMB += InstDedSysMemMB;
 				MemInfo.DedVidMemoryMB += InstDedVidMemMB;
-				//MemInfo.SharedSysMemoryMB += InstSharedSysMemMB;
-				//MemInfo.SharedVidMemoryMB += InstSharedVidMemMB;
+#if ENGINE_MAJOR_VERSION == 4
+				MemInfo.SharedSysMemoryMB += InstSharedSysMemMB;
+				MemInfo.SharedVidMemoryMB += InstSharedVidMemMB;
+#endif // #if ENGINE_MAJOR_VERSION == 4
 				++Instances;
 
 				FInstanceInspectorInstanceInfo& InstInfo = InstanceInfos.AddZeroed_GetRef();
@@ -360,8 +370,10 @@ namespace MemDebugUtils
 				InstInfo.MemInfo.UnknownMemoryMB = InstUnknownMemMB;
 				InstInfo.MemInfo.DedSysMemoryMB = InstDedSysMemMB;
 				InstInfo.MemInfo.DedVidMemoryMB = InstDedVidMemMB;
-				//InstInfo.MemInfo.SharedSysMemoryMB = InstSharedSysMemMB;
-				//InstInfo.MemInfo.SharedVidMemoryMB = InstSharedVidMemMB;
+#if ENGINE_MAJOR_VERSION == 4
+				InstInfo.MemInfo.SharedSysMemoryMB = InstSharedSysMemMB;
+				InstInfo.MemInfo.SharedVidMemoryMB = InstSharedVidMemMB;
+#endif // #if ENGINE_MAJOR_VERSION == 4
 			}
 
 			SortBy(SortType);
@@ -718,7 +730,11 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 			// Use the existing texture streaming functionality to gather referenced textures. Worth noting
 			// that GetStreamingTextureInfo doesn't check whether a texture is actually streamable or not
 			// and is also implemented for skeletal meshes and such.
+#if ENGINE_MAJOR_VERSION == 4
+			ImGuiDebugToolsUtils::FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, PrimitiveComponent);
+#else if ENGINE_MAJOR_VERSION == 5
 			FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, PrimitiveComponent);
+#endif
 			TArray<FStreamingRenderAssetPrimitiveInfo> StreamingTextures;
 			PrimitiveComponent->GetStreamingRenderAssetInfo((FStreamingTextureLevelContext&)LevelContext, StreamingTextures);
 

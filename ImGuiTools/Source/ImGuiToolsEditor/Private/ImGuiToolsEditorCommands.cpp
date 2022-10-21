@@ -117,7 +117,11 @@ void FImGuiToolsEditorElements::RegisterElements()
 		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
 
 		TSharedPtr<FExtender> NewToolbarExtender = MakeShareable(new FExtender);
+#if ENGINE_MAJOR_VERSION == 4
+		NewToolbarExtender->AddToolBarExtension("Build", EExtensionHook::Before, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
+#else if ENGINE_MAJOR_VERSION == 5
 		NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
+#endif
 
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
 	}
