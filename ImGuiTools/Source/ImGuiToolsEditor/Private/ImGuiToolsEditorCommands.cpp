@@ -13,18 +13,56 @@
 
 #define LOCTEXT_NAMESPACE "FImGuiToolsModule"
 
+namespace ImGuiEditorUtils
+{
+	bool IsModuleLoaded(FName ModuleName)
+	{
+		FModuleStatus LevelEditorModuleStatus;
+		FModuleManager::Get().QueryModule(ModuleName, LevelEditorModuleStatus);
+		return LevelEditorModuleStatus.bIsLoaded;
+	}
+
+	bool AreRequiredModulesLoaded()
+	{
+		return (IsModuleLoaded(TEXT("LevelEditor")) && IsModuleLoaded(TEXT("ImGui")));
+	}
+}
+
 void FImGuiToolsEditorCommands::RegisterCommands()
 {
 	UI_COMMAND(ImGuiToolEnabledCommand, "ImGuiTools Enabled", "When enabled, the ImGui Tools menu bar will be drawn on screen. Can also be controlled via CVAR 'imgui.tools.enabled'.", EUserInterfaceActionType::ToggleButton, FInputGesture());
 }
 
+// Entry point to register elements. Do it now if able, else wait until able then do it.
 void FImGuiToolsEditorElements::RegisterElements()
 {
-	CommandList = MakeShareable(new FUICommandList);
+	if (ImGuiEditorUtils::AreRequiredModulesLoaded())
+	{
+		// Ready to register the elements
+		RegisterElements_Internal();
+	}
+	else
+	{
+		// Module not yet loaded, subscribe and wait for the module to be loaded 
+		OnModulesChangedHandler = FModuleManager::Get().OnModulesChanged().AddRaw(this, &FImGuiToolsEditorElements::OnModulesChanged);
+	}
+}
 
-	/*CommandList->MapAction(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand,
-						   FExecuteAction::CreateRaw(this, &FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_Toggled), FCanExecuteAction(),
-						   FIsActionChecked::CreateRaw(this, &FImGuiToolsEditorElements::Callback_ImGuiToolEnabledCommand_IsChecked));*/
+void FImGuiToolsEditorElements::OnModulesChanged(FName Name, EModuleChangeReason Reason)
+{
+	if (ImGuiEditorUtils::AreRequiredModulesLoaded())
+	{
+		// Modules loaded. Unsub from OnModulesChanged and register the elements.
+		FModuleManager::Get().OnModulesChanged().Remove(OnModulesChangedHandler);
+		OnModulesChangedHandler.Reset();
+		RegisterElements_Internal();
+	}
+}
+
+// Actually registers the elements, assuming the level editor module is present. 
+void FImGuiToolsEditorElements::RegisterElements_Internal()
+{
+	CommandList = MakeShareable(new FUICommandList);
 
 	CommandList->MapAction(FImGuiToolsEditorCommands::Get().ImGuiToolEnabledCommand,
 		FExecuteAction::CreateLambda([]() { ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(!ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread()); }), FCanExecuteAction(),
@@ -126,5 +164,4 @@ void FImGuiToolsEditorElements::RegisterElements()
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
 	}
 }
-
 #undef LOCTEXT_NAMESPACE

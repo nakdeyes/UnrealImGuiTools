@@ -4,7 +4,7 @@
 
 #include <ImGuiToolWindow.h>
 
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 // Example ImGui Tool Window
 class GAME_API FExampleImGuiTool 
 	: public FImGuiToolWindow
@@ -17,7 +17,7 @@ public:
 	virtual void ImGuiUpdate(float DeltaTime) override;
 	// ~FImGuiDebugToolWindow 
 };
-#endif // #if !UE_BUILD_SHIPPING
+#endif // #if DRAW_IMGUI_TOOLS
 
 namespace GameImGuiToolsRegistrar
 {

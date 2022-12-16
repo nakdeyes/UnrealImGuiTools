@@ -1040,7 +1040,7 @@ namespace ImGuiActorCompUtils
             });
             
             // What types of worlds to display: 
-            static auto WorldShouldDisplay = [](UWorld* World) 
+            static const auto WorldShouldDisplay = [](UWorld* World) 
             {
                 return (IsValid(World) && !World->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) && World->bIsWorldInitialized 
                     && (World->WorldType != EWorldType::Editor) && (World->WorldType != EWorldType::EditorPreview));

@@ -2,26 +2,26 @@
 
 #include "ImGuiToolsRegistrar.h"
 
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 #include <imgui.h>
-#include <ImGuiDebugTools.h>
-#include <ImGuiDebugToolsManager.h>
-#endif // #if !UE_BUILD_SHIPPING
+#include <ImGuiTools.h>
+#include <ImGuiToolsManager.h>
+#endif // #if DRAW_IMGUI_TOOLS
 
 // Function that registers module level tools. Can be called from ::StartupModule()
 void GameImGuiToolsRegistrar::RegisterGameDebugTools()
 {
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 	FImGuiToolsModule& ImGuiToolsModule = FModuleManager::GetModuleChecked<FImGuiToolsModule>("ImGuiTools");
 	if (ImGuiToolsModule.GetToolsManager().IsValid())
 	{
 		static const FName GameToolsNamespace = TEXT("Game Tools");
 		ImGuiToolsModule.GetToolsManager()->RegisterToolWindow(TSharedPtr<FExampleImGuiTool>(new FExampleImGuiTool()), GameToolsNamespace);
 	}
-#endif // #if !UE_BUILD_SHIPPING
+#endif // #if DRAW_IMGUI_TOOLS
 }
 
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 // Example ImGui Tool Window
 FExampleImGuiTool::FExampleImGuiTool()
 {
@@ -32,4 +32,4 @@ void FExampleImGuiTool::ImGuiUpdate(float DeltaTime)
 {
 	ImGui::Text("Name");
 }
-#endif // #if !UE_BUILD_SHIPPING
+#endif // #if DRAW_IMGUI_TOOLS

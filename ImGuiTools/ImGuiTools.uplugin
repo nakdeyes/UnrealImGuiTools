@@ -16,13 +16,13 @@
 		{
 			"Name": "ImGuiTools",
 			"Type": "ClientOnlyNoCommandlet",
-			"LoadingPhase": "PreDefault",
+			"LoadingPhase": "PreLoadingScreen",
 			"TargetConfigurationDenyList": [ "Shipping" ]
 		},
 		{
 			"Name": "ImGuiToolsEditor",
 			"Type": "Editor",
-			"LoadingPhase": "PreDefault",
+			"LoadingPhase": "PreLoadingScreen",
 			"TargetConfigurationDenyList": [ "Shipping" ]
 		}
 	],

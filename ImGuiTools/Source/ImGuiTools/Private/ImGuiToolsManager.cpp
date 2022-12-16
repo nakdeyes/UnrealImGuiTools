@@ -2,6 +2,7 @@
 
 #include "ImGuiToolsManager.h"
 
+#include "ImGuiTools.h"
 #include "ImGuiToolsDeveloperSettings.h"
 #include "Tools/ImGuiActorComponentDebugger.h"
 #include "Tools/ImGuiCDOExplorer.h"
@@ -11,11 +12,13 @@
 #include <Engine/Console.h>
 #include <ImGuiModule.h>
 
-#if !UE_BUILD_SHIPPING
+#include "ImGuiToolsGameDebugger.h"
+
+#if DRAW_IMGUI_TOOLS
 #include "ImGuiTools.h"
 #include "Utils/ImGuiUtils.h"
 #include <imgui.h>
-#endif	  // #if !UE_BUILD_SHIPPING
+#endif	  // #if DRAW_IMGUI_TOOLS
 
 // CVARs
 TAutoConsoleVariable<bool> ImGuiDebugCVars::CVarImGuiToolsEnabled(TEXT("imgui.tools.enabled"), false, TEXT("If true, draw ImGui Debug tools."));
@@ -55,11 +58,11 @@ TStatId FImGuiToolsManager::GetStatId() const
 
 ETickableTickType FImGuiToolsManager::GetTickableTickType() const
 {
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 	return ETickableTickType::Conditional;
 #else
 	return ETickableTickType::Never;
-#endif	  // #if !UE_BUILD_SHIPPING
+#endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 bool FImGuiToolsManager::IsTickable() const
@@ -84,7 +87,7 @@ void FImGuiToolsManager::RegisterToolWindow(TSharedPtr<FImGuiToolWindow> ToolWin
 
 void FImGuiToolsManager::Tick(float DeltaTime)
 {
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 	// Draw Main Menu Bar
 	if (ImGui::BeginMainMenuBar())
 	{
@@ -147,6 +150,7 @@ void FImGuiToolsManager::Tick(float DeltaTime)
 			}
 
 		}
+
 		if (ImGui::BeginMenu("UETools"))
 		{
 			if (ImGui::BeginMenu("Options"))
@@ -168,16 +172,19 @@ void FImGuiToolsManager::Tick(float DeltaTime)
 			}
 			ImGui::EndMenu();
 		}
+
+		// Draw Game Debugger menu
+		FImGuiToolsGameDebugger::DrawMainImGuiMenu();
 		
 		if (ShowFPS)
 		{
-			ImGui::SameLine(130.0f);
+			ImGui::SameLine(180.0f);
 			const int FPS = static_cast<int>(1.0f / DeltaTime);
 			const float Millis = DeltaTime * 1000.0f;
 			ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "%03d FPS %.02f ms", FPS, Millis);
 		}
 
-		ImGui::SameLine(260.0f);
+		ImGui::SameLine(310.0f);
 		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "'imgui.toggleinput' to toggle input, or set HotKey in ImGui Plugin prefs.");
 
 		ImGui::EndMainMenuBar();
@@ -200,7 +207,7 @@ void FImGuiToolsManager::Tick(float DeltaTime)
 			}
 		}
 	}
-#endif	  // #if !UE_BUILD_SHIPPING
+#endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 ToolNamespaceMap& FImGuiToolsManager::GetToolsWindows()
@@ -237,7 +244,7 @@ TSharedPtr<FImGuiToolWindow> FImGuiToolsManager::GetToolWindow(const FString& To
 
 void FImGuiToolsManager::ToggleToolVisCommand(const TArray<FString>& Args)
 {
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 	FImGuiToolsModule& ImGuiToolsModule = FModuleManager::GetModuleChecked<FImGuiToolsModule>("ImGuiTools");
 	if (!ImGuiToolsModule.GetToolsManager().IsValid())
 	{
@@ -281,12 +288,12 @@ void FImGuiToolsManager::ToggleToolVisCommand(const TArray<FString>& Args)
 		// .. else just toggle tool vis.
 		FoundTool->EnableTool(!FoundTool->GetEnabledRef());
 	}
-#endif	  // #if !UE_BUILD_SHIPPING
+#endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 void FImGuiToolsManager::RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand>& Commands) const
 {
-#if !UE_BUILD_SHIPPING
+#if DRAW_IMGUI_TOOLS
 	for (const TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolWindows)
 	{
 		const FName& NamespaceName = NamespaceToolWindows.Key;
@@ -299,5 +306,5 @@ void FImGuiToolsManager::RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand
 			Commands.Add(Entry);
 		}
 	}
-#endif // #if !UE_BUILD_SHIPPING
+#endif // #if DRAW_IMGUI_TOOLS
 }

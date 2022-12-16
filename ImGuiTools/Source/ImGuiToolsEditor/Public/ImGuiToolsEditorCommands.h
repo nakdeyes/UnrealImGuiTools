@@ -33,6 +33,10 @@ public:
 	void RegisterElements();
 
 private:
-
+	void OnModulesChanged(FName Name, EModuleChangeReason Reason);
+	FDelegateHandle OnModulesChangedHandler;
+	
+	// Actually registers the elements, assuming the level editor module is present. 
+	void RegisterElements_Internal();
 	TSharedPtr<FUICommandList> CommandList;
 };

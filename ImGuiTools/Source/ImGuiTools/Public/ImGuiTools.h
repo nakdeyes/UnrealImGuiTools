@@ -6,6 +6,7 @@
 #include <Modules/ModuleManager.h>
 
 // forward declarations
+class FImGuiToolsGameDebugger;
 class FImGuiToolsManager;
 
 class IMGUITOOLS_API FImGuiToolsModule : public IModuleInterface
@@ -17,7 +18,9 @@ public:
 	// ~IModuleInterface
 	
 	TSharedPtr<FImGuiToolsManager> GetToolsManager();
+	TSharedPtr<FImGuiToolsGameDebugger> GetGameDebugger();
 
 private:
 	TSharedPtr<FImGuiToolsManager> ToolsManager;
+	TSharedPtr<FImGuiToolsGameDebugger> GameDebugger;
 };

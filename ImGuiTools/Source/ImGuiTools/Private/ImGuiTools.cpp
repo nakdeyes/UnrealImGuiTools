@@ -1,6 +1,8 @@
 // Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #include "ImGuiTools.h"
+
+#include "ImGuiToolsGameDebugger.h"
 #include "ImGuiToolsManager.h"
 #include "Misc/MessageDialog.h"
 
@@ -11,11 +13,18 @@ void FImGuiToolsModule::StartupModule()
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 	ToolsManager = MakeShareable(new FImGuiToolsManager());
 	ToolsManager->InitPluginTools();
+
+	GameDebugger = MakeShareable(new FImGuiToolsGameDebugger());
 }
 
 TSharedPtr<FImGuiToolsManager> FImGuiToolsModule::GetToolsManager()
 {
 	return ToolsManager;
+}
+
+TSharedPtr<FImGuiToolsGameDebugger> FImGuiToolsModule::GetGameDebugger()
+{
+	return GameDebugger;
 }
 
 #undef LOCTEXT_NAMESPACE
