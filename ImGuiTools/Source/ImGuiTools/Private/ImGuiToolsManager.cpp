@@ -8,6 +8,7 @@
 #include "Tools/ImGuiCDOExplorer.h"
 #include "Tools/ImGuiFileLoadDebugger.h"
 #include "Tools/ImGuiMemoryDebugger.h"
+#include "Tools/ImGuiShaderCompilationInfo.h"
 
 #include <Engine/Console.h>
 #include <ImGuiModule.h>
@@ -77,6 +78,7 @@ void FImGuiToolsManager::InitPluginTools()
     RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiCDOExplorer()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiFileLoadDebugger()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiMemoryDebugger()), PluginToolsNamespace);
+	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiShaderCompilationInfo()), PluginToolsNamespace);
 }
 
 void FImGuiToolsManager::RegisterToolWindow(TSharedPtr<FImGuiToolWindow> ToolWindow, FName ToolNamespace /*= NAME_None*/)
