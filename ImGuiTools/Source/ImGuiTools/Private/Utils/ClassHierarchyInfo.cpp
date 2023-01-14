@@ -175,7 +175,7 @@ void ImGuiTools::FHierarchicalRootClassInfo::Reset()
 
 					if (DerivedNames.Contains(*ClassName))
 					{
-						TSoftClassPtr<UObject> AssetSubClass = TSoftClassPtr<UObject>(FStringAssetReference(ClassObjectPath));
+						TSoftClassPtr<UObject> AssetSubClass = TSoftClassPtr<UObject>(FSoftObjectPath(ClassObjectPath));
 						if (UClass* SubClassUClass = Cast<UClass>(AssetSubClass.Get()))
 						{
 							// Loaded classes have UClass available already.

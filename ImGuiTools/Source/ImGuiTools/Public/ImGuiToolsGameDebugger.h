@@ -1,4 +1,6 @@
-﻿#pragma once
+// Distributed under the MIT License (MIT) (see accompanying LICENSE file)
+
+#pragma once
 
 struct IMGUITOOLS_API FActorComponentCustomization
 {

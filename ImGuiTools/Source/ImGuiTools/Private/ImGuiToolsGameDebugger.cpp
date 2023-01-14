@@ -1,4 +1,6 @@
-﻿#include "ImGuiToolsGameDebugger.h"
+// Distributed under the MIT License (MIT) (see accompanying LICENSE file)
+
+#include "ImGuiToolsGameDebugger.h"
 
 #include <imgui.h>
 #include "Utils/ImGuiUtils.h"
@@ -12,11 +14,11 @@ namespace GameDebuggerUtil
 
 		if (!ActorValid)
 		{
-			ImGui::Text(Ansi(*ActorMenuStr));
+			ImGui::Text("%s", Ansi(*ActorMenuStr));
 			return;
 		}
 		
-		if (ImGui::BeginMenu(Ansi(*ActorMenuStr)))
+		if (ImGui::BeginMenu("%s", Ansi(*ActorMenuStr)))
 		{
 			
 			ImGui::EndMenu();

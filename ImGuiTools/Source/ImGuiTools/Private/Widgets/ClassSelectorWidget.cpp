@@ -82,7 +82,7 @@ namespace ClassSelectorUtil
             {
                 if (ClassSelector.GetClassNameFilter().PassFilter(Ansi(*UnloadedChildInfo.ClassName)))
                 {
-                    ImGui::TextColored(ImGuiTools::Colors::Purple, " Unloaded BP: %s", Ansi(*UnloadedChildInfo.ClassName), Ansi(*UnloadedChildInfo.SoftClassInfo.ToString()));
+                    ImGui::TextColored(ImGuiTools::Colors::Purple, " Unloaded BP: %s (inf: %s)", Ansi(*UnloadedChildInfo.ClassName), Ansi(*UnloadedChildInfo.SoftClassInfo.ToString()));
 					ImGui::SameLine(ImGui::GetWindowWidth() - 160.0f);
 					if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load##%s"), *UnloadedChildInfo.ClassName))))
 					{

@@ -17,14 +17,27 @@ namespace ImGuiEditorUtils
 {
 	bool IsModuleLoaded(FName ModuleName)
 	{
-		FModuleStatus LevelEditorModuleStatus;
-		FModuleManager::Get().QueryModule(ModuleName, LevelEditorModuleStatus);
-		return LevelEditorModuleStatus.bIsLoaded;
+        FModuleStatus ModuleStatus;
+        FModuleManager::Get().QueryModule(ModuleName, ModuleStatus);
+        return ModuleStatus.bIsLoaded;
 	}
 
 	bool AreRequiredModulesLoaded()
 	{
-		return (IsModuleLoaded(TEXT("LevelEditor")) && IsModuleLoaded(TEXT("ImGui")));
+        // Check if modules are loaded..
+        const bool RequiredModulesLoaded = (IsModuleLoaded(TEXT("LevelEditor")) && IsModuleLoaded(TEXT("ImGui")));
+
+        // If all required modules are loaded, ensure the level editor extensibility manager is also available. So dumb that this is required, but stems from nuances of
+        //  the module manager code, where modules can be not "ready" (and thus extensibilitymanager not init'ed), but still report as loaded. Checking that state is private
+        //  to the module manager, so lets just manually check if the level editor modules' extensibility manager is init'ed yet as that is what we need it for.
+        bool LevelEditorModuleReady = false;
+        if (RequiredModulesLoaded)
+        {
+            FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+            LevelEditorModuleReady = LevelEditorModule.GetToolBarExtensibilityManager().IsValid();
+        }
+
+        return RequiredModulesLoaded && LevelEditorModuleReady;
 	}
 }
 
@@ -157,11 +170,12 @@ void FImGuiToolsEditorElements::RegisterElements_Internal()
 		TSharedPtr<FExtender> NewToolbarExtender = MakeShareable(new FExtender);
 #if ENGINE_MAJOR_VERSION == 4
 		NewToolbarExtender->AddToolBarExtension("Build", EExtensionHook::Before, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
-#else if ENGINE_MAJOR_VERSION == 5
+#elif ENGINE_MAJOR_VERSION == 5
 		NewToolbarExtender->AddToolBarExtension("Play", EExtensionHook::After, CommandList, FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, CommandList));
 #endif
 
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
 	}
 }
+
 #undef LOCTEXT_NAMESPACE

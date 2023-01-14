@@ -732,7 +732,7 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 			// and is also implemented for skeletal meshes and such.
 #if ENGINE_MAJOR_VERSION == 4
 			ImGuiDebugToolsUtils::FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, PrimitiveComponent);
-#else if ENGINE_MAJOR_VERSION == 5
+#elif ENGINE_MAJOR_VERSION == 5
 			FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, PrimitiveComponent);
 #endif
 			TArray<FStreamingRenderAssetPrimitiveInfo> StreamingTextures;
