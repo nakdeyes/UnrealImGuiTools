@@ -18,7 +18,7 @@ namespace GameDebuggerUtil
 			return;
 		}
 		
-		if (ImGui::BeginMenu("%s", Ansi(*ActorMenuStr)))
+		if (ImGui::BeginMenu(Ansi(*ActorMenuStr)))
 		{
 			
 			ImGui::EndMenu();
