@@ -13,11 +13,7 @@ class FImGuiToolWindow;
 class FImGuiToolsEditorCommands : public TCommands<FImGuiToolsEditorCommands>
 {
 public:
-
-	FImGuiToolsEditorCommands()
-		: TCommands<FImGuiToolsEditorCommands>(TEXT("ImGuiTools"), NSLOCTEXT("Contexts", "ImGuiTools", "ImGuiTools Plugin"), NAME_None, FImGuiToolsEditorStyle::GetStyleSetName())
-	{
-	}
+    FImGuiToolsEditorCommands();
 
 	// TCommands<> interface
 	virtual void RegisterCommands() override;
@@ -39,4 +35,6 @@ private:
 	// Actually registers the elements, assuming the level editor module is present. 
 	void RegisterElements_Internal();
 	TSharedPtr<FUICommandList> CommandList;
+
+
 };

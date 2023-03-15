@@ -4,6 +4,8 @@
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "Utils/ImGuiUtils.h"
+#include "UObject/UObjectIterator.h"
+#include "Engine/Blueprint.h"
 
 namespace ClassHierarchyUtil
 {

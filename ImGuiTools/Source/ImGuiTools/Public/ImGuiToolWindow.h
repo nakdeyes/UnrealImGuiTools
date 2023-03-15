@@ -1,6 +1,7 @@
 // Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #pragma once
+#include "CoreMinimal.h"
 
 // types
 typedef int ImGuiWindowFlags;

@@ -2,7 +2,12 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
 #include "ImGuiToolWindow.h"
+#include "UObject/WeakObjectPtr.h"
+
+class UClass;
+class UObject;
 
 namespace ImGuiActorCompUtils
 {

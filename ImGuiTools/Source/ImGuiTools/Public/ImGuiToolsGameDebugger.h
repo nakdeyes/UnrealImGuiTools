@@ -1,6 +1,9 @@
-// Distributed under the MIT License (MIT) (see accompanying LICENSE file)
+﻿// Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
 
 struct IMGUITOOLS_API FActorComponentCustomization
 {

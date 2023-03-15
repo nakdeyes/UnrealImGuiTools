@@ -1,6 +1,7 @@
 // Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #include "ImGuiMemoryDebugger.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 #if ENGINE_MAJOR_VERSION == 4
 #include "Misc/StreamingTextureLevelContext.h"	// StreamingTexture copy for UE 4.XX where this is not exported in engine. (fixed in UE5)
@@ -13,6 +14,7 @@
 #include <Engine/TextureLODSettings.h>
 #include <Engine/TextureStreamingTypes.h>
 #include <RenderUtils.h>
+#include <UObject/UObjectIterator.h>
 
 #include <imgui.h>
 

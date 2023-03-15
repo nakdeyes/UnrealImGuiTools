@@ -20,7 +20,7 @@ void FImGuiShaderCompilationInfo::ImGuiUpdate(float DeltaTime)
 
     if (ImGui::CollapsingHeader("Shader Comp Manager", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-    	ImGui::Text("  * GetStaticAssetTypeName:			%s", GShaderCompilingManager->GetStaticAssetTypeName());
+    	ImGui::Text("  * GetStaticAssetTypeName:			%s", Ansi(*GShaderCompilingManager->GetStaticAssetTypeName().ToString()));
     	ImGui::Text("  * IsCompiling:					%d", GShaderCompilingManager->IsCompiling());
     	ImGui::Text("  * HasShaderJobs:					%d", GShaderCompilingManager->HasShaderJobs());
     	ImGui::Text("  * IsShaderCompilationSkipped:		%d", GShaderCompilingManager->IsShaderCompilationSkipped());
@@ -34,7 +34,7 @@ void FImGuiShaderCompilationInfo::ImGuiUpdate(float DeltaTime)
 	if (ImGui::CollapsingHeader("Shader Comp Stats", ImGuiTreeNodeFlags_DefaultOpen))
 	{
 		//ImGui::Text("  * GetTimeShaderCompilationWasActive:		% .02f", GShaderCompilerStats->GetTimeShaderCompilationWasActive());
-		ImGui::Text("  * GetTotalShadersCompiled:				%d", GShaderCompilerStats->GetTotalShadersCompiled());
+		//ImGui::Text("  * GetTotalShadersCompiled:				%d", GShaderCompilerStats->GetTotalShadersCompiled());
 		// ImGui::Text("  * GetDDCHits:					%d", GShaderCompilerStats->GetDDCHits());
 		// ImGui::Text("  * GetDDCMisses:				%d", GShaderCompilerStats->GetDDCMisses());
 

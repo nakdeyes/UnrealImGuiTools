@@ -1,9 +1,14 @@
-// Distributed under the MIT License (MIT) (see accompanying LICENSE file)
+﻿// Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #include "ImGuiToolsGameDebugger.h"
 
 #include <imgui.h>
 #include "Utils/ImGuiUtils.h"
+#include <GameFramework/Actor.h>
+#include "Engine/World.h"
+#include "UObject/UObjectIterator.h"
+#include "GameFramework/PlayerController.h"
+
 
 namespace GameDebuggerUtil
 {

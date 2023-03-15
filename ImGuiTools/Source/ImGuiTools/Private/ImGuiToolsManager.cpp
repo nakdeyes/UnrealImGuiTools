@@ -26,6 +26,8 @@ TAutoConsoleVariable<bool> ImGuiDebugCVars::CVarImGuiToolsEnabled(TEXT("imgui.to
 static FString ToggleToolVisCVARName = TEXT("imgui.tools.toggle_tool_vis");
 FAutoConsoleCommand ToggleToolVis(*ToggleToolVisCVARName, TEXT("Toggle the visibility of a particular ImGui Debug Tool by providing it's string name as an argument"),
 								  FConsoleCommandWithArgsDelegate::CreateStatic(&FImGuiToolsManager::ToggleToolVisCommand));
+FAutoConsoleCommand ToggleToolsVis(TEXT("imgui.tools.toggle_enabled"), TEXT("Master toggle for ImGui Tools. Will also toggle on ImGui drawing and input, so this is great if ImGui Tools is your main interactions with ImGui."),
+    FConsoleCommandWithArgsDelegate::CreateStatic(&FImGuiToolsManager::ToggleToolsVisCommand));
 
 FImGuiToolsManager::FImGuiToolsManager()
 	: DrawImGuiDemo(false)
@@ -278,18 +280,42 @@ void FImGuiToolsManager::ToggleToolVisCommand(const TArray<FString>& Args)
 		return;
 	}
 
-	const bool AllToolsHidden = !ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnAnyThread();
-	if (AllToolsHidden)
-	{
-		// Use case is: I just want to see my tool, or I just want to hide 1 tool. So always set the Tools to Enabled if they are globally disabled...
+    const bool NewToolEnabled = !FoundTool->GetEnabledRef();
+    FoundTool->EnableTool(NewToolEnabled);
+
+    if (NewToolEnabled)
+    {
+        // New tool enabled, flick on ImGui Tools enabled if not already set. 
 		ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(true);
-		FoundTool->EnableTool(true);
-	}
-	else
-	{
-		// .. else just toggle tool vis.
-		FoundTool->EnableTool(!FoundTool->GetEnabledRef());
-	}
+    }
+    else
+    {
+        // Tool now disabled.. check to see if all are closed and if so - close ImGuiTools
+        bool AnyToolEnabled = false;
+        ToolNamespaceMap& AllToolWindows = ImGuiToolsModule.GetToolsManager()->GetToolsWindows();
+        for (const TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceTools : AllToolWindows)
+        {
+            for (const TSharedPtr<FImGuiToolWindow>& ToolSharedPtr : NamespaceTools.Value)
+            {
+                if (ToolSharedPtr.IsValid())
+                {
+                    AnyToolEnabled |= ToolSharedPtr->GetEnabledRef();
+                }
+            }
+        }
+
+        if (!AnyToolEnabled)
+        {
+            ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(false);
+        }
+    }
+#endif	  // #if DRAW_IMGUI_TOOLS
+}
+
+void FImGuiToolsManager::ToggleToolsVisCommand(const TArray<FString>& Args)
+{
+#if DRAW_IMGUI_TOOLS
+    ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(!ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread());
 #endif	  // #if DRAW_IMGUI_TOOLS
 }
 

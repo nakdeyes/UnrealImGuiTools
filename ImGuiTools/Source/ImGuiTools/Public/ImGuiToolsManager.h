@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <HAL/IConsoleManager.h>
 #include <ConsoleSettings.h>
 #include <Tickable.h>
 
@@ -38,6 +39,7 @@ public:
 	TSharedPtr<FImGuiToolWindow> GetToolWindow(const FString& ToolWindowName, FName ToolNamespace = NAME_None);
 
 	static void ToggleToolVisCommand(const TArray<FString>& Args);
+    static void ToggleToolsVisCommand(const TArray<FString>& Args);
 
 private:
 	ToolNamespaceMap ToolWindows;

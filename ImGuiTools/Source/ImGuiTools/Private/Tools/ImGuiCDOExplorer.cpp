@@ -4,6 +4,9 @@
 
 #include <imgui.h>
 
+#include "UObject/Class.h"
+#include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
 #include "Utils/ImGuiUtils.h"
 #include "Widgets/ClassSelectorWidget.h"
 

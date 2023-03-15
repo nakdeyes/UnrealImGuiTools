@@ -1,9 +1,11 @@
 // Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #pragma once
+#include "UObject/SoftObjectPtr.h"
 
 // forward declarations
 class UClass;
+class UObject;
 
 namespace ImGuiTools
 {

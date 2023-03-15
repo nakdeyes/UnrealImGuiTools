@@ -17,7 +17,6 @@ namespace ImGuiEditorUtils
 {
 	bool IsModuleLoaded(FName ModuleName)
 	{
-        FModuleStatus ModuleStatus;
         FModuleManager::Get().QueryModule(ModuleName, ModuleStatus);
         return ModuleStatus.bIsLoaded;
 	}
@@ -39,6 +38,11 @@ namespace ImGuiEditorUtils
 
         return RequiredModulesLoaded && LevelEditorModuleReady;
 	}
+}
+
+FImGuiToolsEditorCommands::FImGuiToolsEditorCommands()
+    : TCommands<FImGuiToolsEditorCommands>(TEXT("ImGuiTools"), NSLOCTEXT("Contexts", "ImGuiTools", "ImGuiTools Plugin"), NAME_None, FImGuiToolsEditorStyle::GetStyleSetName())
+{
 }
 
 void FImGuiToolsEditorCommands::RegisterCommands()

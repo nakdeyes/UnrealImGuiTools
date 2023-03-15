@@ -7,6 +7,7 @@
 
 #include <imgui.h>
 #include <EngineUtils.h>
+#include <UObject/UObjectIterator.h>
 
 namespace ImGuiActorCompUtils
 {

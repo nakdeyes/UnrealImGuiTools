@@ -41,11 +41,15 @@ public class ImGuiToolsEditor : ModuleRules
 			PrivateDependencyModuleNames.AddRange(new string[] {
 				"ImGui",
 			});
-			
+
 			// DRAW_IMGUI_TOOLS - is meant to be a flag that can be disabled to run the module in a minimal / mostly disabled state.
 			//	It is recommended to simply not load the module for whatever builds you do not wish to use ImGuiTools with, but this
 			//	flag can be disabled for corner cases where you want a mostly no-op module.
-			PublicDefinitions.Add("DRAW_IMGUI_TOOLS");
+			PublicDefinitions.Add("DRAW_IMGUI_TOOLS=1");
+		}
+		else
+		{
+			PublicDefinitions.Add("DRAW_IMGUI_TOOLS=0");
 		}
 	}
 }
