@@ -17,7 +17,8 @@ namespace ImGuiEditorUtils
 {
 	bool IsModuleLoaded(FName ModuleName)
 	{
-        FModuleManager::Get().QueryModule(ModuleName, ModuleStatus);
+		FModuleStatus ModuleStatus;
+		FModuleManager::Get().QueryModule(ModuleName, ModuleStatus);
         return ModuleStatus.bIsLoaded;
 	}
 
