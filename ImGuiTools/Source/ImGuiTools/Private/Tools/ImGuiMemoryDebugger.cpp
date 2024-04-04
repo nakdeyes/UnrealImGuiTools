@@ -10,6 +10,7 @@
 #include "Utils/ImGuiUtils.h"
 
 #include <Components/PrimitiveComponent.h>
+#include <Engine/Texture2D.h>
 #include <Engine/TextureCube.h>
 #include <Engine/TextureLODSettings.h>
 #include <Engine/TextureStreamingTypes.h>
@@ -115,6 +116,8 @@ namespace MemDebugUtils
 		enum Type
 		{
 			Instances = 0,
+			IsDefaultObject,
+			Outer,
 			TotalMem,
 			UnknownMem,
 			DedSysMem,
@@ -128,6 +131,7 @@ namespace MemDebugUtils
 		static bool DefaultVisibility[Type::COUNT] =
 		{
 			/*Instances*/		true,
+			/*Outer*/           true,
 			/*TotalMem*/        true,
 			/*UnknownMem*/      true,
 			/*DedSysMem*/       true,
@@ -212,6 +216,7 @@ namespace MemDebugUtils
 					continue;
 				}
 				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::Exclusive);
+				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::EstimatedTotal);
 				It->GetResourceSizeEx(TrueResourceSize);
 				for (FCachedClassInfo& ClassInfo : Classes)
 				{
@@ -252,6 +257,7 @@ namespace MemDebugUtils
 					for (FCachedClassInfo& ClassInfo : Classes)
 					{
 						ClassInfo.ChildIndicies.Sort([this](int LHS, int RHS) { return Classes[LHS].Class->GetName() < Classes[RHS].Class->GetName(); });
+						ClassInfo.ChildIndicies.Sort([this](int LHS, int RHS) { return GetNameSafe(Classes[LHS].Class.Get()) < GetNameSafe(Classes[RHS].Class.Get()); });
 					}
 					break;
 
@@ -347,6 +353,7 @@ namespace MemDebugUtils
 				}
 
 				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::Exclusive);
+				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::EstimatedTotal);
 				It->GetResourceSizeEx(TrueResourceSize);
 				const float InstTotalMemMB = (float)TrueResourceSize.GetTotalMemoryBytes()/1024.0f/1024.0f;
 				const float InstUnknownMemMB = (float)TrueResourceSize.GetUnknownMemoryBytes() / 1024.0f / 1024.0f;
@@ -532,6 +539,11 @@ namespace MemDebugUtils
 		if (ImGui::RadioButton("##Alpha", InstInspInfo.SortType == MemDebugUtils::EMemSortType::Alpha)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::Alpha); } ImGui::SameLine();
 		ImGui::Text("Alpha"); ImGui::NextColumn();
 
+		ImGui::Checkbox("##IsDefaultObject", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)); ImGui::SameLine();
+		ImGui::Text("IsDefaultObject"); 
+		ImGui::Checkbox("##Outer", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)); ImGui::SameLine();
+		ImGui::Text("Outer"); ImGui::NextColumn();
+
 		ImGui::Checkbox("##TotalMemCh", &InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)); ImGui::SameLine();
 		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem))
 		{ if (ImGui::RadioButton("##TotalMem", InstInspInfo.SortType == MemDebugUtils::EMemSortType::TotalMem)) { InstInspInfo.SortBy(MemDebugUtils::EMemSortType::TotalMem); } ImGui::SameLine(); }
@@ -581,7 +593,7 @@ namespace MemDebugUtils
 		ImGui::Text("Total Instances: %d    Total Size: % .04fMB", InstInspInfo.Instances, InstInspInfo.MemInfo.TotalMemoryMB);
 		ImGui::Separator();
 
-		static constexpr int ColumnCount = 7;
+		static constexpr int ColumnCount = 9;
 		InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Instances) = false; // gross: Instances is disabled for this view so ensure it is off so CacheColCount() is contextually correct
 		const int VisibleColCount = InstInspInfo.ShowCols.CacheShowColCount() + 1;
 		ImGui::Columns(VisibleColCount, "ObjInstCol");
@@ -600,6 +612,8 @@ namespace MemDebugUtils
 			}
 		}
 		ImGui::Text("Object"); ImGui::NextColumn();
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::Text("Is Default Obj"); ImGui::NextColumn(); }
+		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { ImGui::Text("Outer"); ImGui::NextColumn(); }
 		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("Total Mem"); ImGui::NextColumn(); }
 		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("Unknown Mem"); ImGui::NextColumn(); }
 		if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("DedSys Mem"); ImGui::NextColumn(); }
@@ -624,13 +638,34 @@ namespace MemDebugUtils
 			{
 				if (InspInstance.InstanceWkPtr.IsValid() && !InspInstance.InstanceWkPtr.IsStale())
 				{
-					ImGui::Text("%s", Ansi(*InspInstance.InstanceWkPtr->GetName()));
+					ImGui::Text("%s", Ansi(*InspInstance.InstanceWkPtr->GetName())); 
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("        Object: %s", Ansi(*InspInstance.InstanceWkPtr->GetName()));
+						ImGui::Text("         Outer: %s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter())));
+						ImGui::Text("default SubObj: %d", InspInstance.InstanceWkPtr->IsDefaultSubobject());
+
+						/*TArray<FReferencerInformation> ReferencerInfos_Internal;
+						TArray<FReferencerInformation> ReferencerInfos_External;
+						InspInstance.InstanceWkPtr->RetrieveReferencers(&ReferencerInfos_Internal, &ReferencerInfos_External);
+						ImGui::Text(" internal refs: %d", ReferencerInfos_External.Num());
+						ImGui::Text(" external refs: %d", ReferencerInfos_External.Num());*/
+
+						ImGui::EndTooltip();
+					}
+					ImGui::NextColumn();
+
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::Text(InspInstance.InstanceWkPtr->IsDefaultSubobject() ? "true" : "false"); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { ImGui::Text("%s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter()))); ImGui::NextColumn(); }
 				}
 				else
 				{
-					ImGui::Text("STALE/INVALID PTR");
+					ImGui::Text("STALE/INVALID PTR"); ImGui::NextColumn();
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { ImGui::NextColumn(); }
 				}
-				ImGui::NextColumn();
+				
 				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
 				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
 				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
@@ -811,9 +846,6 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 			}
 		}
 
-		// Sort textures by cost.
-		SortedTextures.Sort(MemDebugUtils::FCompareFSortedTexture(bAlphaSort));
-
 		// Retrieve mapping from LOD group enum value to text representation.
 		TArray<FString> TextureGroupNames = UTextureLODSettings::GetTextureGroupNames();
 
@@ -833,6 +865,9 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 		uint64 TotalMaxAllowedSize = 0;
 		uint64 TotalCurrentSize = 0;
 		ImGui::BeginChild("TextureList", ImVec2(0, 500.0f));
+
+		// Sort textures by cost.
+		SortedTextures.Sort(MemDebugUtils::FCompareFSortedTexture(bAlphaSort));
 
 		ImGui::Columns(7);
 		static float ColumnWidths[7];
@@ -928,6 +963,9 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 		ImGui::Columns(2);
 		static const float RadWidth = 54.0f;
 		static ImGuiTools::Utils::FShowCols ShowCols(MemDebugUtils::EColumnTypes::COUNT, &MemDebugUtils::EColumnTypes::DefaultVisibility[0]);
+		ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::IsDefaultObject) = false;
+		ShowCols.GetShowCol(MemDebugUtils::EColumnTypes::Outer) = false;
+
 		ImGui::SameLine(27.0f);
 		if (ImGui::RadioButton("##Alpha", SortMode == MemDebugUtils::EMemSortType::Alpha)) { SortMode = MemDebugUtils::EMemSortType::Alpha; CachedClassTree.SortBy(SortMode); } ImGui::SameLine();
 		ImGui::Text("Alpha"); ImGui::NextColumn();
