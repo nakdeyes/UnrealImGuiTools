@@ -131,6 +131,7 @@ namespace MemDebugUtils
 		static bool DefaultVisibility[Type::COUNT] =
 		{
 			/*Instances*/		true,
+			/*IsDefaultObject*/ true,
 			/*Outer*/           true,
 			/*TotalMem*/        true,
 			/*UnknownMem*/      true,
@@ -215,7 +216,6 @@ namespace MemDebugUtils
 				{
 					continue;
 				}
-				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::Exclusive);
 				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::EstimatedTotal);
 				It->GetResourceSizeEx(TrueResourceSize);
 				for (FCachedClassInfo& ClassInfo : Classes)
@@ -256,7 +256,6 @@ namespace MemDebugUtils
 				case EMemSortType::Alpha:
 					for (FCachedClassInfo& ClassInfo : Classes)
 					{
-						ClassInfo.ChildIndicies.Sort([this](int LHS, int RHS) { return Classes[LHS].Class->GetName() < Classes[RHS].Class->GetName(); });
 						ClassInfo.ChildIndicies.Sort([this](int LHS, int RHS) { return GetNameSafe(Classes[LHS].Class.Get()) < GetNameSafe(Classes[RHS].Class.Get()); });
 					}
 					break;
@@ -352,7 +351,6 @@ namespace MemDebugUtils
 					continue;
 				}
 
-				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::Exclusive);
 				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::EstimatedTotal);
 				It->GetResourceSizeEx(TrueResourceSize);
 				const float InstTotalMemMB = (float)TrueResourceSize.GetTotalMemoryBytes()/1024.0f/1024.0f;
