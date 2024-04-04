@@ -199,7 +199,7 @@ namespace MemDebugUtils
 			}
 		}
 
-		void UpdateMemoryStats(bool IncludeCDO)
+		void UpdateMemoryStats(bool IncludeCDO, EResourceSizeMode::Type ResourceSizeMode = EResourceSizeMode::Exclusive)
 		{
 			// Caching Class Entires is quick compared to what we are about to do.. refresh latest class info.
 			TryCacheEntries(/*ForceRecache*/true);
@@ -216,7 +216,7 @@ namespace MemDebugUtils
 				{
 					continue;
 				}
-				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::EstimatedTotal);
+				FResourceSizeEx TrueResourceSize = FResourceSizeEx(ResourceSizeMode);
 				It->GetResourceSizeEx(TrueResourceSize);
 				for (FCachedClassInfo& ClassInfo : Classes)
 				{
@@ -335,10 +335,10 @@ namespace MemDebugUtils
 		TArray<FInstanceInspectorInstanceInfo> InstanceInfos;
 		ImGuiTextFilter NameFilter;
 		bool bAutoRefresh = false;	// option to auto refresh the instance view
-		float AutoRefreshTime = 1.0f; // interval to auto refresh the intstance view
+		float AutoRefreshTime = 4.0f; // interval to auto refresh the instance view
 		float AutoRefreshTimer = 0.0f;	// current timer from last time auto refresh occurred.
 
-		void UpdateObjectMemoryInfo(bool IncludeCDO)
+		void UpdateObjectMemoryInfo(bool IncludeCDO, EResourceSizeMode::Type ResourceSizeMode = EResourceSizeMode::Exclusive)
 		{
 			MemInfo = {};
 			Instances = 0;
@@ -351,7 +351,7 @@ namespace MemDebugUtils
 					continue;
 				}
 
-				FResourceSizeEx TrueResourceSize = FResourceSizeEx(EResourceSizeMode::EstimatedTotal);
+				FResourceSizeEx TrueResourceSize = FResourceSizeEx(ResourceSizeMode);
 				It->GetResourceSizeEx(TrueResourceSize);
 				const float InstTotalMemMB = (float)TrueResourceSize.GetTotalMemoryBytes()/1024.0f/1024.0f;
 				const float InstUnknownMemMB = (float)TrueResourceSize.GetUnknownMemoryBytes() / 1024.0f / 1024.0f;
@@ -503,15 +503,47 @@ namespace MemDebugUtils
 		return true;
 	}
 
+	void DrawHoveredItemInstanceTooltip(UObject* InstanceObject)
+	{
+		ImGui::BeginTooltip();
+		if (IsValid(InstanceObject))
+		{
+			ImGui::Text("        Object: %s", Ansi(*GetNameSafe(InstanceObject)));
+			ImGui::Text("         Outer: %s", Ansi(*GetNameSafe(InstanceObject->GetOuter())));
+			ImGui::Text("default SubObj: %d", InstanceObject->IsDefaultSubobject());
+
+			/*TArray<FReferencerInformation> ReferencerInfos_Internal;
+			TArray<FReferencerInformation> ReferencerInfos_External;
+			InstanceObject->RetrieveReferencers(&ReferencerInfos_Internal, &ReferencerInfos_External);
+			ImGui::Text(" internal refs: %d", ReferencerInfos_External.Num());
+			ImGui::Text(" external refs: %d", ReferencerInfos_External.Num());*/
+		}
+		else
+		{
+			ImGui::Text(" Invalid / Stale Object!");
+		}
+
+		ImGui::EndTooltip();
+	}
+
 	void DrawObjectInspectorPopup(FInstanceInspectorInfo& InstInspInfo, float DeltaTime)
 	{
+		static EResourceSizeMode::Type ResourceSizeMode = EResourceSizeMode::EstimatedTotal;
 		ImGui::Text("%s", Ansi(*InstInspInfo.Class->GetName()));
 		ImGui::SameLine();
 		if (ImGui::SmallButton("Update Instance Memory Data"))
 		{
-			InstInspInfo.UpdateObjectMemoryInfo(false);
+			InstInspInfo.UpdateObjectMemoryInfo(false, ResourceSizeMode);
 		}
 		
+		ImGui::SameLine(0.0f, 50.0f);
+
+		static int ResourceSizeModeComboValue = static_cast<int>(ResourceSizeMode);
+		ImGui::BeginChild("ResourceSizeModeCombo", ImVec2(230.0f, 18.0f));
+		ImGui::Combo("##ResourceSizeModeCombo", &ResourceSizeModeComboValue, "Exclusive\0Estimated Total");
+		ResourceSizeMode = static_cast<EResourceSizeMode::Type>(ResourceSizeModeComboValue);
+		ImGui::EndChild();
+
 		ImGui::Checkbox("Auto-Update", &InstInspInfo.bAutoRefresh);
 		if (InstInspInfo.bAutoRefresh)
 		{
@@ -523,7 +555,7 @@ namespace MemDebugUtils
 			if (InstInspInfo.AutoRefreshTimer <= 0.0f)
 			{
 				InstInspInfo.AutoRefreshTimer = InstInspInfo.AutoRefreshTime;
-				InstInspInfo.UpdateObjectMemoryInfo(false);
+				InstInspInfo.UpdateObjectMemoryInfo(false, ResourceSizeMode);
 			}
 		}
 		ImGui::Separator();
@@ -597,7 +629,7 @@ namespace MemDebugUtils
 		ImGui::Columns(VisibleColCount, "ObjInstCol");
 		static float ColumnWidths[ColumnCount];
 		static constexpr float InfoColWidth = 110.0f;
-		ColumnWidths[0] = ImGui::GetWindowWidth() - (InfoColWidth * (VisibleColCount - 1));
+		ColumnWidths[0] = ImGui::GetWindowWidth() - (InfoColWidth * (VisibleColCount - 1)); // Object col
 		if (VisibleColCount > 1)
 		{
 			for (int i = 0; i < VisibleColCount; ++i)
@@ -636,26 +668,21 @@ namespace MemDebugUtils
 			{
 				if (InspInstance.InstanceWkPtr.IsValid() && !InspInstance.InstanceWkPtr.IsStale())
 				{
-					ImGui::Text("%s", Ansi(*InspInstance.InstanceWkPtr->GetName())); 
+					ImGui::Text("%s", Ansi(*InspInstance.InstanceWkPtr->GetName()));
 					if (ImGui::IsItemHovered())
 					{
-						ImGui::BeginTooltip();
-						ImGui::Text("        Object: %s", Ansi(*InspInstance.InstanceWkPtr->GetName()));
-						ImGui::Text("         Outer: %s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter())));
-						ImGui::Text("default SubObj: %d", InspInstance.InstanceWkPtr->IsDefaultSubobject());
-
-						/*TArray<FReferencerInformation> ReferencerInfos_Internal;
-						TArray<FReferencerInformation> ReferencerInfos_External;
-						InspInstance.InstanceWkPtr->RetrieveReferencers(&ReferencerInfos_Internal, &ReferencerInfos_External);
-						ImGui::Text(" internal refs: %d", ReferencerInfos_External.Num());
-						ImGui::Text(" external refs: %d", ReferencerInfos_External.Num());*/
-
-						ImGui::EndTooltip();
+						DrawHoveredItemInstanceTooltip(InspInstance.InstanceWkPtr.Get());
 					}
 					ImGui::NextColumn();
 
 					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::Text(InspInstance.InstanceWkPtr->IsDefaultSubobject() ? "true" : "false"); ImGui::NextColumn(); }
-					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { ImGui::Text("%s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter()))); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { 
+						ImGui::Text("%s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter()))); 
+						if (ImGui::IsItemHovered())
+						{
+							DrawHoveredItemInstanceTooltip(InspInstance.InstanceWkPtr.Get());
+						}
+						ImGui::NextColumn(); }
 				}
 				else
 				{
@@ -946,14 +973,21 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 		static MemDebugUtils::FCachedClassTree CachedClassTree;
 		static bool IncludeCDO = false;
 		CachedClassTree.TryCacheEntries();
+		static EResourceSizeMode::Type ResourceSizeMode = EResourceSizeMode::EstimatedTotal;
 		ImGui::Columns(3);
 		if (ImGui::Button("Update (SLOW!)"))
 		{
-			CachedClassTree.UpdateMemoryStats(IncludeCDO);
+			CachedClassTree.UpdateMemoryStats(IncludeCDO, ResourceSizeMode);
 			CachedClassTree.SortBy(SortMode);
 		}
+
 		static bool AutoUpdateOnStale = true;
 		ImGui::Checkbox("Update on Stale", &AutoUpdateOnStale);
+		ImGui::BeginChild("##ResourceSizeModeComboMain", ImVec2(210.0f, 18.0f));
+		static int ResourceSizeModeComboValue = static_cast<int>(ResourceSizeMode);
+		ImGui::Combo("##ResourceSizeModeCombo", &ResourceSizeModeComboValue, "Exclusive\0Estimated Total");
+		ResourceSizeMode = static_cast<EResourceSizeMode::Type>(ResourceSizeModeComboValue);
+		ImGui::EndChild();
 		ImGui::SetColumnWidth(0, 150.0f);
 		ImGui::NextColumn();
 		ImGui::Text("Include/Sort:");
@@ -1065,7 +1099,7 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 			if (AutoUpdateOnStale)
 			{
 				// Update on Stale will be slow, but will run full memory stats when class data goes stale.
-				CachedClassTree.UpdateMemoryStats(IncludeCDO);
+				CachedClassTree.UpdateMemoryStats(IncludeCDO, ResourceSizeMode);
 			}
 			else
 			{
