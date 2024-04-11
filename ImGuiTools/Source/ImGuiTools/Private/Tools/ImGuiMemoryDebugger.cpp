@@ -319,19 +319,75 @@ namespace MemDebugUtils
 		TArray<FCachedClassInfo> Classes;
 	};
 
+	// Struct for each instance in the list of all instances per-class
 	struct FInstanceInspectorInstanceInfo
 	{
-		TWeakObjectPtr<UObject> InstanceWkPtr;
+		TWeakObjectPtr<UObject> InstanceWkPtr = nullptr;
 		FMemInfo MemInfo;
+	};
+
+	// holds referencer info in a memory safe way
+	struct FReferencerInfo
+	{
+		TWeakObjectPtr<UObject> ReferencerWkPtr = nullptr;
+		TArray<FString> ReferencingProperties;
+		int TotalReferences = 0;
+	};
+
+	// Struct for a single inspected instance
+	struct FInspectedInstanceInfo
+	{
+		TWeakObjectPtr<UObject> InspectedWkPtr = nullptr;
+		TArray<FReferencerInfo> CachedInternalReferencers;
+		TArray<FReferencerInfo> CachedExternalReferencers;
+
+		void UpdateInspectedInstanceReferencers()
+		{
+			// This caching exists because FReferencerInformation holds raw UObject pointers and UObject::RetrieveReferencers() is slllooooww
+			//  so just run it on demand and cache the results in 
+			CachedInternalReferencers.Empty();
+			CachedExternalReferencers.Empty();
+
+			UObject* InspectedInstanceRawPtr = InspectedWkPtr.Get();
+			if (IsValid(InspectedInstanceRawPtr))
+			{
+				TArray<FReferencerInformation> ReferencerInfos_Internal;
+				TArray<FReferencerInformation> ReferencerInfos_External;
+				InspectedInstanceRawPtr->RetrieveReferencers(&ReferencerInfos_Internal, &ReferencerInfos_External);
+
+				for (const FReferencerInformation& ReferencerInternal : ReferencerInfos_Internal)
+				{
+					FReferencerInfo& NewReferencerInfo = CachedInternalReferencers.AddDefaulted_GetRef();
+					
+					NewReferencerInfo.ReferencerWkPtr = ReferencerInternal.Referencer;
+					NewReferencerInfo.TotalReferences = ReferencerInternal.TotalReferences;
+
+					for (const FProperty* ReferencingProperty : ReferencerInternal.ReferencingProperties)
+					{
+						NewReferencerInfo.ReferencingProperties.Add(ReferencingProperty->GetNameCPP());
+					}
+				}
+			}
+		}
+
+		void SetInpectedInstance(const TWeakObjectPtr<UObject>& NewInpectedInstance)
+		{
+			if (NewInpectedInstance.IsValid())
+			{
+				InspectedWkPtr = NewInpectedInstance;
+				UpdateInspectedInstanceReferencers();
+			}
+		}
 	};
 
 	struct FInstanceInspectorInfo
 	{
-		TWeakObjectPtr<UClass> Class;
+		TWeakObjectPtr<UClass> Class = nullptr;
 		FMemInfo MemInfo;
 		int Instances = 0;
 		EMemSortType::Type SortType = EMemSortType::TotalMem;
 		ImGuiTools::Utils::FShowCols ShowCols = ImGuiTools::Utils::FShowCols(EColumnTypes::COUNT, &EColumnTypes::DefaultVisibility[0]);
+		FInspectedInstanceInfo InspectedInstance;
 		TArray<FInstanceInspectorInstanceInfo> InstanceInfos;
 		ImGuiTextFilter NameFilter;
 		bool bAutoRefresh = false;	// option to auto refresh the instance view
@@ -511,12 +567,6 @@ namespace MemDebugUtils
 			ImGui::Text("        Object: %s", Ansi(*GetNameSafe(InstanceObject)));
 			ImGui::Text("         Outer: %s", Ansi(*GetNameSafe(InstanceObject->GetOuter())));
 			ImGui::Text("default SubObj: %d", InstanceObject->IsDefaultSubobject());
-
-			/*TArray<FReferencerInformation> ReferencerInfos_Internal;
-			TArray<FReferencerInformation> ReferencerInfos_External;
-			InstanceObject->RetrieveReferencers(&ReferencerInfos_Internal, &ReferencerInfos_External);
-			ImGui::Text(" internal refs: %d", ReferencerInfos_External.Num());
-			ImGui::Text(" external refs: %d", ReferencerInfos_External.Num());*/
 		}
 		else
 		{
@@ -653,54 +703,144 @@ namespace MemDebugUtils
 		ImGui::Columns(1);
 		ImGui::EndChild();	  // "InstLabel"
 
-		ImGui::BeginChild("InstInfo", ImVec2(0, 360.0f), true);
-		ImGui::Columns(VisibleColCount, "ObjInstCol");
-		if (VisibleColCount > 1)
+		if (ImGui::CollapsingHeader("All Instances", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			for (int i = 0; i < VisibleColCount; ++i)
+			ImGui::BeginChild("InstInfo", ImVec2(0, 360.0f), true);
+			ImGui::Columns(VisibleColCount, "ObjInstCol");
+			if (VisibleColCount > 1)
 			{
-				ImGui::SetColumnWidth(i, ColumnWidths[i]);
-			}
-		}
-		for (const FInstanceInspectorInstanceInfo& InspInstance : InstInspInfo.InstanceInfos)
-		{
-			if (!InstInspInfo.NameFilter.IsActive() || InstInspInfo.NameFilter.PassFilter(TCHAR_TO_ANSI(*InspInstance.InstanceWkPtr->GetName())))
-			{
-				if (InspInstance.InstanceWkPtr.IsValid() && !InspInstance.InstanceWkPtr.IsStale())
+				for (int i = 0; i < VisibleColCount; ++i)
 				{
-					ImGui::Text("%s", Ansi(*InspInstance.InstanceWkPtr->GetName()));
-					if (ImGui::IsItemHovered())
+					ImGui::SetColumnWidth(i, ColumnWidths[i]);
+				}
+			}
+			for (const FInstanceInspectorInstanceInfo& InspInstance : InstInspInfo.InstanceInfos)
+			{
+				if (!InstInspInfo.NameFilter.IsActive() || InstInspInfo.NameFilter.PassFilter(TCHAR_TO_ANSI(*GetNameSafe(InspInstance.InstanceWkPtr.Get()))))
+				{
+					if (InspInstance.InstanceWkPtr.IsValid() && !InspInstance.InstanceWkPtr.IsStale())
 					{
-						DrawHoveredItemInstanceTooltip(InspInstance.InstanceWkPtr.Get());
-					}
-					ImGui::NextColumn();
-
-					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::Text(InspInstance.InstanceWkPtr->IsDefaultSubobject() ? "true" : "false"); ImGui::NextColumn(); }
-					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { 
-						ImGui::Text("%s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter()))); 
+						if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Inspect##%.54ls"), *GetNameSafe(InspInstance.InstanceWkPtr.Get())))))
+						{
+							InstInspInfo.InspectedInstance.SetInpectedInstance(InspInstance.InstanceWkPtr);
+						}
+						ImGui::SameLine();
+						ImGui::Text("%s", Ansi(*InspInstance.InstanceWkPtr->GetName()));
 						if (ImGui::IsItemHovered())
 						{
 							DrawHoveredItemInstanceTooltip(InspInstance.InstanceWkPtr.Get());
 						}
-						ImGui::NextColumn(); }
-				}
-				else
-				{
-					ImGui::Text("STALE/INVALID PTR"); ImGui::NextColumn();
-					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::NextColumn(); }
-					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { ImGui::NextColumn(); }
-				}
+						ImGui::NextColumn();
+
+						if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::Text(InspInstance.InstanceWkPtr->IsDefaultSubobject() ? "true" : "false"); ImGui::NextColumn(); }
+						if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { 
+							ImGui::Text("%s", Ansi(*GetNameSafe(InspInstance.InstanceWkPtr->GetOuter()))); 
+							if (ImGui::IsItemHovered())
+							{
+								DrawHoveredItemInstanceTooltip(InspInstance.InstanceWkPtr.Get());
+							}
+						
+							ImGui::NextColumn(); 
+						}
+					}
+					else
+					{
+						ImGui::Text("STALE/INVALID PTR"); ImGui::NextColumn();
+						if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::IsDefaultObject)) { ImGui::NextColumn(); }
+						if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::Outer)) { ImGui::NextColumn(); }
+					}
 				
-				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedVidMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedVidMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedSysMemoryMB); ImGui::NextColumn(); }
-				if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedVidMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedVidMemoryMB); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::TotalMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.TotalMemoryMB); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::UnknownMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.UnknownMemoryMB); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedSysMemoryMB); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::DedVidMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.DedVidMemoryMB); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedSysMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedSysMemoryMB); ImGui::NextColumn(); }
+					if (InstInspInfo.ShowCols.GetShowCol(EColumnTypes::SharedVidMem)) { ImGui::Text("%.04f MB", InspInstance.MemInfo.SharedVidMemoryMB); ImGui::NextColumn(); }
+				}
 			}
+			ImGui::Columns(1);
+			ImGui::EndChild(); // "InstInfo"
 		}
-		ImGui::Columns(1);
-		ImGui::EndChild(); // "InstInfo"
+
+		if (ImGui::CollapsingHeader("Inspected Instance", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::BeginChild("InspectedInstance", ImVec2(0, 440.0f), true);
+
+			UObject* InspectedInstanceRawPtr = InstInspInfo.InspectedInstance.InspectedWkPtr.Get();
+			if (IsValid(InspectedInstanceRawPtr))
+			{
+				ImGui::Text("        Object: %s (%p)", Ansi(*GetNameSafe(InspectedInstanceRawPtr)), InspectedInstanceRawPtr);
+				ImGui::Text("         Class: %s", Ansi(*GetNameSafe(InspectedInstanceRawPtr->GetClass())));
+				ImGui::Text("         World: %s (%p)", Ansi(*GetNameSafe(InspectedInstanceRawPtr->GetWorld())), InspectedInstanceRawPtr->GetWorld());
+				ImGui::Text("         Outer: %s", Ansi(*GetNameSafe(InspectedInstanceRawPtr->GetOuter())));
+				ImGui::Text("default SubObj: %d", InspectedInstanceRawPtr->IsDefaultSubobject());
+
+				if (ImGui::Button("Refresh Referencers (SLOW!)"))
+				{
+					InstInspInfo.InspectedInstance.UpdateInspectedInstanceReferencers();
+				}
+
+				const auto DrawReferencers = [](const TArray<FReferencerInfo>& CachedReferencerInfo, const FString& HeaderString)
+				{
+					static constexpr int RefInfoColumnCount = 4;
+					ImGui::Columns(RefInfoColumnCount);
+					ImGui::Text("Name"); ImGui::NextColumn();
+					ImGui::Text("Class"); ImGui::NextColumn();
+					ImGui::Text("World"); ImGui::NextColumn();
+					ImGui::Text("Properties"); ImGui::NextColumn();
+					ImGui::Columns(1);
+
+					ImGui::BeginChild(Ansi(*HeaderString), ImVec2(0, 200.0f), true);
+					ImGui::Columns(RefInfoColumnCount);
+
+					int RefIter = 0;
+					for (const FReferencerInfo& ReferencerInfo : CachedReferencerInfo)
+					{
+						UObject* ReferencerRawPtr = ReferencerInfo.ReferencerWkPtr.Get();
+						ImGui::Text("%03d: %s(%p) (refs: %d)", ++RefIter, Ansi(*GetNameSafe(ReferencerRawPtr)), ReferencerRawPtr, ReferencerInfo.TotalReferences); ImGui::NextColumn();
+
+						if (IsValid(ReferencerRawPtr))
+						{
+							ImGui::Text("%s", Ansi(*GetNameSafe(ReferencerRawPtr->GetClass()))); ImGui::NextColumn();
+							ImGui::Text("%s", Ansi(*GetNameSafe(ReferencerRawPtr->GetWorld()))); ImGui::NextColumn();
+							for (int i = 0; i < ReferencerInfo.ReferencingProperties.Num(); ++i)
+							{
+								const FString& RefPropName = ReferencerInfo.ReferencingProperties[i];
+								ImGui::Text("%02d: %s", (i+1), Ansi(*RefPropName));
+							}
+							ImGui::NextColumn();
+						}
+						else
+						{
+							ImGui::Text("*invalid*"); ImGui::NextColumn();
+							ImGui::Text("*invalid*"); ImGui::NextColumn();
+							ImGui::Text("*invalid*"); ImGui::NextColumn();
+						}
+					}
+
+					ImGui::Columns(1);
+					ImGui::EndChild();
+				};
+
+
+				const FString& InternalRefHeader = FString::Printf(TEXT("Internal Referencers count: %d"), InstInspInfo.InspectedInstance.CachedInternalReferencers.Num());
+				const FString& ExternalRefHeader = FString::Printf(TEXT("External Referencers count: %d"), InstInspInfo.InspectedInstance.CachedExternalReferencers.Num());
+				if (ImGui::CollapsingHeader(Ansi(*InternalRefHeader)))
+				{
+					DrawReferencers(InstInspInfo.InspectedInstance.CachedInternalReferencers, InternalRefHeader);
+				}
+				if (ImGui::CollapsingHeader(Ansi(*ExternalRefHeader), ImGuiTreeNodeFlags_DefaultOpen))
+				{
+					DrawReferencers(InstInspInfo.InspectedInstance.CachedExternalReferencers, InternalRefHeader);
+				}
+			}
+			else
+			{
+				ImGui::Text("Inspected Instance Invalid / Stale / Null - Please select an instance in the list above.");
+			}
+
+			ImGui::EndChild(); // "InspectedInstance"
+		}
 	}
 }
 
@@ -951,21 +1091,23 @@ void FImGuiMemoryDebugger::ImGuiUpdate(float DeltaTime)
 		}
 		ImGui::Columns(1);
 		ImGui::EndChild(); // "TextureListContents"
+
 		ImGui::Separator();
 		ImGui::Columns(4);
 		ImGui::Text("Total OnDisk"); ImGui::NextColumn();
 		ImGui::Text("Total InMem"); ImGui::NextColumn();
 		ImGui::Text("Count"); ImGui::NextColumn();
 		ImGui::Text("CountApplicableToMin"); ImGui::NextColumn();
-		
+
 		ImGui::Text("%.2f MB", (double)TotalMaxAllowedSize / 1024. / 1024.); ImGui::NextColumn();
 		ImGui::Text("%.2f MB", (double)TotalCurrentSize / 1024. / 1024.); ImGui::NextColumn();
 		ImGui::Text("%d", SortedTextures.Num()); ImGui::NextColumn();
 		ImGui::Text("%d", NumApplicableToMinSize); ImGui::NextColumn();
-		
+
 		ImGui::Columns(1);
 		ImGui::EndChild(); // "TextureList"
 	}
+
 
 	if (ImGui::CollapsingHeader("Object Memory"))
 	{
