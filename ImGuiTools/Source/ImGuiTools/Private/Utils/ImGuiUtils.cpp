@@ -46,3 +46,33 @@ int ImGuiTools::Utils::FShowCols::GetCachedShowColCount()
 {
 	return CachedShowColCount;
 }
+
+void ImGuiTools::Utils::FWorldCache::TryCacheWorlds()
+{
+    // Remove any Worlds that may now be invalid.
+    CachedWorlds.RemoveAll([](const TWeakObjectPtr<UWorld>& World) {
+        return !IsValid(World.Get());
+    });
+
+    // What types of worlds to display: 
+    static const auto WorldShouldDisplay = [](UWorld* World)
+    {
+        return (IsValid(World) && !World->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) && World->bIsWorldInitialized
+            && (World->WorldType != EWorldType::Editor) && (World->WorldType != EWorldType::EditorPreview));
+    };
+
+    for (TObjectIterator<UWorld> It; It; ++It)
+    {
+        UWorld* World = *It;
+        if (!WorldShouldDisplay(World))
+        {
+            continue;
+        }
+
+        // if this is a new world, add a new cached world actor object.
+        if (!CachedWorlds.ContainsByPredicate([World](const TWeakObjectPtr<UWorld>& CachedWorldWeakPtr) { return (CachedWorldWeakPtr.Get() == World); }))
+        {
+            CachedWorlds.Add(TWeakObjectPtr<UWorld>(World));
+        }
+    }
+}

@@ -2,6 +2,8 @@
 
 #include "Widgets/ClassSelectorWidget.h"
 
+#include "Runtime/Launch/Resources/Version.h"
+
 #include "Utils/ImGuiUtils.h"
 
 namespace ClassSelectorUtil
@@ -17,7 +19,11 @@ namespace ClassSelectorUtil
         // .. or if any unloaded classes match filter
         for (ImGuiTools::FHierarchicalClassInfo::UnloadedClassInfo& UnloadedClassInfo : ClassInfo.mUnloadedChildren)
         {
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+            if (ClassNameFilter.PassFilter(Ansi(*UnloadedClassInfo.ClassAssetPath.ToString())))
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
             if (ClassNameFilter.PassFilter(Ansi(*UnloadedClassInfo.ClassName)))
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
             {
                 return true;
             }
@@ -80,16 +86,29 @@ namespace ClassSelectorUtil
 
             for (ImGuiTools::FHierarchicalClassInfo::UnloadedClassInfo& UnloadedChildInfo : ClassInfo.mUnloadedChildren)
             {
-                if (ClassSelector.GetClassNameFilter().PassFilter(Ansi(*UnloadedChildInfo.ClassName)))
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+                if (ClassSelector.GetClassNameFilter().PassFilter(Ansi(*UnloadedChildInfo.ClassAssetPath.ToString())))
                 {
-                    ImGui::TextColored(ImGuiTools::Colors::Purple, " Unloaded BP: %s (inf: %s)", Ansi(*UnloadedChildInfo.ClassName), Ansi(*UnloadedChildInfo.SoftClassInfo.ToString()));
+                    ImGui::TextColored(ImGuiTools::Colors::Purple, " Unloaded BP: %s (inf: %s)", Ansi(*UnloadedChildInfo.ClassAssetPath.ToString()), Ansi(*UnloadedChildInfo.SoftClassInfo.ToString()));
 					ImGui::SameLine(ImGui::GetWindowWidth() - 160.0f);
-					if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load##%s"), *UnloadedChildInfo.ClassName))))
+					if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load##%s"), *UnloadedChildInfo.ClassAssetPath.ToString()))))
 					{
                         UnloadedChildInfo.SoftClassInfo.LoadSynchronous();
                         ClassSelector.QueueReset();
 					}
                 }
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+                if (ClassSelector.GetClassNameFilter().PassFilter(Ansi(*UnloadedChildInfo.ClassName)))
+                {
+                    ImGui::TextColored(ImGuiTools::Colors::Purple, " Unloaded BP: %s (inf: %s)", Ansi(*UnloadedChildInfo.ClassName), Ansi(*UnloadedChildInfo.SoftClassInfo.ToString()));
+                    ImGui::SameLine(ImGui::GetWindowWidth() - 160.0f);
+                    if (ImGui::SmallButton(Ansi(*FString::Printf(TEXT("Load##%s"), *UnloadedChildInfo.ClassName))))
+                    {
+                        UnloadedChildInfo.SoftClassInfo.LoadSynchronous();
+                        ClassSelector.QueueReset();
+                    }
+                }
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
             }
 
             ImGui::TreePop();

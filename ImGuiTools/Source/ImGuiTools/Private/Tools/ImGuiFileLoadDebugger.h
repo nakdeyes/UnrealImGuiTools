@@ -4,7 +4,8 @@
 
 #include "ImGuiToolWindow.h"
 
-#include <Misc/CoreDelegates.h>
+#include "Misc/CoreDelegates.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 class IMGUITOOLS_API FImGuiFileLoadDebugger : public FImGuiToolWindow
 {
@@ -20,7 +21,11 @@ public:
 	void ToggleRecord();
 
 	// Core Delegate callbacks
-	void OnAsyncLoadPackage(const FString& PackageName);
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+	void OnAsyncLoadPackage(const FStringView PackageNameStrView);
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+    void OnAsyncLoadPackage(const FString& PackageName);
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
 	void OnSyncLoadPackage(const FString& PackageName);
 
 private:

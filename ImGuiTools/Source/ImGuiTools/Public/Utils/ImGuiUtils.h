@@ -19,6 +19,7 @@ namespace ImGuiTools
 
 	namespace Utils
 	{
+          // FShowCols - small object to manage column visibility states.
 		struct FShowCols
 		{
 			FShowCols(int ColCount, bool* OptionalDefaultColArray = nullptr);
@@ -41,5 +42,12 @@ namespace ImGuiTools
 			int CachedShowColCount = 0;
 			int TotalShowColCount = 0;
 		};
+
+        // FWorldCache - small object to manage caching valid worlds, for use in situations where there is no relevant world context.
+        struct FWorldCache
+        {
+            void TryCacheWorlds();
+            TArray<TWeakObjectPtr<UWorld>> CachedWorlds;
+        };
 	}	// namespace Utils
 }		// namespace ImGuiTools

@@ -2,6 +2,7 @@
 
 #pragma once
 #include "UObject/SoftObjectPtr.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 // forward declarations
 class UClass;
@@ -21,7 +22,11 @@ namespace ImGuiTools
 		struct UnloadedClassInfo
 		{
 			TSoftClassPtr<UObject>  SoftClassInfo;
-			FString                 ClassName;
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+			FTopLevelAssetPath      ClassAssetPath;
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+            FString                 ClassName;
+#endif  // EENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 		};
 		TArray<UnloadedClassInfo> mUnloadedChildren;
 

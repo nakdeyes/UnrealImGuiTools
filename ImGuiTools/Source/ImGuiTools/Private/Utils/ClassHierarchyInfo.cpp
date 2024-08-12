@@ -2,10 +2,12 @@
 
 #include "Utils/ClassHierarchyInfo.h"
 
-#include "AssetRegistry/AssetRegistryModule.h"
 #include "Utils/ImGuiUtils.h"
-#include "UObject/UObjectIterator.h"
+
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/Blueprint.h"
+#include "Runtime/Launch/Resources/Version.h"
+#include "UObject/UObjectIterator.h"
 
 namespace ClassHierarchyUtil
 {
@@ -31,10 +33,17 @@ namespace ClassHierarchyUtil
 	bool InsertIntoChildOrSelf(ImGuiTools::FHierarchicalClassInfo& ClassInfo, ImGuiTools::FHierarchicalClassInfo::UnloadedClassInfo& UnloadedClass, IAssetRegistry& AssetRegistry)
 	{
 		// for this unloaded class, see if class info class is an ancestor, if so, see if any children are as well first to claim ownership.
-		TArray<FName> AncestorNames;
-		AssetRegistry.GetAncestorClassNames(FName(UnloadedClass.ClassName), AncestorNames);
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+		TArray<FTopLevelAssetPath> AncestorNames;
+		AssetRegistry.GetAncestorClassNames(UnloadedClass.ClassAssetPath, AncestorNames);
 
-		if (AncestorNames.Contains(ClassInfo.mClass->GetFName()))
+		if (AncestorNames.Contains(ClassInfo.mClass->GetClassPathName()))
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+        TArray<FName> AncestorNames;
+        AssetRegistry.GetAncestorClassNames(FName(UnloadedClass.ClassName), AncestorNames);
+
+        if (AncestorNames.Contains(ClassInfo.mClass->GetFName()))
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 		{
 			// check for child inheritance first
 			bool ChildInherited = false;
@@ -148,14 +157,26 @@ void ImGuiTools::FHierarchicalRootClassInfo::Reset()
 	}
 
 	// Get all BP Classes
-	TSet<FName> DerivedNames;
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+	TSet<FTopLevelAssetPath> DerivedNames;
 	{
-		TArray<FName> BaseNames;
-		BaseNames.Add(mRootClassInfo.mClass->GetFName());
+		TArray<FTopLevelAssetPath> BaseNames;
 
-		TSet<FName> Excluded;
+        BaseNames.Add(mRootClassInfo.mClass->GetClassPathName());
+
+		TSet<FTopLevelAssetPath> Excluded;
 		AssetRegistry.GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
 	}
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+    TSet<FName> DerivedNames;
+    {
+        TArray<FName> BaseNames;
+        BaseNames.Add(mRootClassInfo.mClass->GetFName());
+
+        TSet<FName> Excluded;
+        AssetRegistry.GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
+    }
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 
 	// Get all assets in the path, does not load them
 	TArray<FAssetData> ScriptAssetList;
@@ -175,7 +196,14 @@ void ImGuiTools::FHierarchicalRootClassInfo::Reset()
 					const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(*GeneratedClassPath);
 					const FString ClassName = FPackageName::ObjectPathToObjectName(ClassObjectPath);
 
-					if (DerivedNames.Contains(*ClassName))
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+                    FTopLevelAssetPath BaseNameAssetPath;
+                    BaseNameAssetPath.TrySetPath(ClassObjectPath);
+
+					if (DerivedNames.Contains(BaseNameAssetPath))
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+                    if (DerivedNames.Contains(*ClassName))
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
 					{
 						TSoftClassPtr<UObject> AssetSubClass = TSoftClassPtr<UObject>(FSoftObjectPath(ClassObjectPath));
 						if (UClass* SubClassUClass = Cast<UClass>(AssetSubClass.Get()))
@@ -187,8 +215,12 @@ void ImGuiTools::FHierarchicalRootClassInfo::Reset()
 						{
 							// Unloaded classes, we store a copy to the soft class ptr for loading later
 							ImGuiTools::FHierarchicalClassInfo::UnloadedClassInfo& UnloadedClassInfo = UnloadedClasses.AddDefaulted_GetRef();
-							UnloadedClassInfo.ClassName = ClassName;
-							UnloadedClassInfo.SoftClassInfo = AssetSubClass;
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+							UnloadedClassInfo.ClassAssetPath    = BaseNameAssetPath;
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+                            UnloadedClassInfo.ClassName         = ClassName;
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+							UnloadedClassInfo.SoftClassInfo     = AssetSubClass;
 						}
 					}
 				}

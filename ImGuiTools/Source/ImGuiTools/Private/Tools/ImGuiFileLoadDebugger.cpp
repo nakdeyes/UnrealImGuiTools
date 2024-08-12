@@ -94,14 +94,21 @@ void FImGuiFileLoadDebugger::ToggleRecord()
 
 	if (bRecordingLoads)
 	{
-		AsyncLoadDelegateHandle = FCoreDelegates::OnAsyncLoadPackage.AddRaw(this, &FImGuiFileLoadDebugger::OnAsyncLoadPackage);
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+		AsyncLoadDelegateHandle = FCoreDelegates::GetOnAsyncLoadPackage().AddRaw(this, &FImGuiFileLoadDebugger::OnAsyncLoadPackage);
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+        AsyncLoadDelegateHandle = FCoreDelegates::OnAsyncLoadPackage.AddRaw(this, &FImGuiFileLoadDebugger::OnAsyncLoadPackage);
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
 		SyncLoadDelegateHandle = FCoreDelegates::OnSyncLoadPackage.AddRaw(this, &FImGuiFileLoadDebugger::OnSyncLoadPackage);
 	}
 	else
 	{
-		FCoreDelegates::OnAsyncLoadPackage.Remove(AsyncLoadDelegateHandle);
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+        FCoreDelegates::GetOnAsyncLoadPackage().Remove(AsyncLoadDelegateHandle);
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+        FCoreDelegates::OnAsyncLoadPackage.Remove(AsyncLoadDelegateHandle);
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
 		AsyncLoadDelegateHandle.Reset();
-
 
 		FCoreDelegates::OnSyncLoadPackage.Remove(SyncLoadDelegateHandle);
 		SyncLoadDelegateHandle.Reset();
@@ -109,8 +116,16 @@ void FImGuiFileLoadDebugger::ToggleRecord()
 	UE_LOG(LogImGuiDebugLoad, Warning, TEXT("FImGuiFileLoadDebugger::ToggleRecord. New Recording state: %s"), bRecordingLoads ? TEXT("enabled") : TEXT("disabled"));
 }
 
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+void FImGuiFileLoadDebugger::OnAsyncLoadPackage(const FStringView PackageNameStrView)
+#else   // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
 void FImGuiFileLoadDebugger::OnAsyncLoadPackage(const FString& PackageName)
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
 {
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+    const FString PackageName(PackageNameStrView);
+#endif  // ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+
 	// NOTE: sync loads will kick off an async request with this callback, then flush it within the callstack. So true Async loads are loads that
 	//	come through this path, but didn't already come through via the SyncLoadPackage callback.
 	if (!SyncLoadFiles.Contains(PackageName))

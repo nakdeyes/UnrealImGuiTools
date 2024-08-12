@@ -34,7 +34,7 @@ namespace GameDebuggerUtil
 
 void FImGuiToolsGameDebugger::DrawMainImGuiMenu()
 {
-	return; // This is super WIP and disabled at the moment.
+#if 0 // This is super WIP and disabled at the moment.
 	
 	if (ImGui::BeginMenu("Game"))
 	{
@@ -72,6 +72,7 @@ void FImGuiToolsGameDebugger::DrawMainImGuiMenu()
 
 		ImGui::EndMenu(); // "Game"
 	}
+#endif // 0
 }
 
 void FImGuiToolsGameDebugger::RegisterActorComponentCustomization(const FActorComponentCustomization& Customization)
