@@ -12,9 +12,14 @@ void FImGuiToolsModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 	ToolsManager = MakeShareable(new FImGuiToolsManager());
-	ToolsManager->InitPluginTools();
+	ToolsManager->Initialize();
 
 	GameDebugger = MakeShareable(new FImGuiToolsGameDebugger());
+}
+
+void FImGuiToolsModule::ShutdownModule()
+{
+	ToolsManager->Deinitialize();
 }
 
 TSharedPtr<FImGuiToolsManager> FImGuiToolsModule::GetToolsManager()

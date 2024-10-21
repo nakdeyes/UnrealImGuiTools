@@ -44,7 +44,7 @@ namespace ImGuiTools
 		};
 
         // FWorldCache - small object to manage caching valid worlds, for use in situations where there is no relevant world context.
-        struct FWorldCache
+        struct IMGUITOOLS_API FWorldCache
         {
             void TryCacheWorlds();
             TArray<TWeakObjectPtr<UWorld>> CachedWorlds;

@@ -15,6 +15,7 @@ public:
 
 	// IModuleInterface
 	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
 	// ~IModuleInterface
 	
 	TSharedPtr<FImGuiToolsManager> GetToolsManager();

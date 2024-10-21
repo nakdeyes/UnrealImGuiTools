@@ -21,6 +21,8 @@
 #include <imgui.h>
 #endif	  // #if DRAW_IMGUI_TOOLS
 
+DEFINE_LOG_CATEGORY_STATIC(LogImGuiToolsManager, Log, All);
+
 // CVARs
 TAutoConsoleVariable<bool> ImGuiDebugCVars::CVarImGuiToolsEnabled(TEXT("imgui.tools.enabled"), false, TEXT("If true, draw ImGui Debug tools."));
 static FString ToggleToolVisCVARName = TEXT("imgui.tools.toggle_tool_vis");
@@ -73,20 +75,40 @@ bool FImGuiToolsManager::IsTickable() const
 	return ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread();
 }
 
-void FImGuiToolsManager::InitPluginTools()
+void FImGuiToolsManager::Initialize()
 {
+#if DRAW_IMGUI_TOOLS
 	static const FName PluginToolsNamespace = TEXT("Included Plugin Tools");
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiActorComponentDebugger()), PluginToolsNamespace);
     RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiCDOExplorer()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiFileLoadDebugger()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiMemoryDebugger()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiShaderCompilationInfo()), PluginToolsNamespace);
+
+	if (!InputProcessor)
+	{
+		InputProcessor = MakeShared<FImGuiToolsInputProcessor>();
+		FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);
+	}
+#endif	  // #if DRAW_IMGUI_TOOLS
+}
+
+void FImGuiToolsManager::Deinitialize()
+{
+#if DRAW_IMGUI_TOOLS
+	if (InputProcessor)
+	{
+		InputProcessor = nullptr;
+	}
+#endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 void FImGuiToolsManager::RegisterToolWindow(TSharedPtr<FImGuiToolWindow> ToolWindow, FName ToolNamespace /*= NAME_None*/)
 {
+#if DRAW_IMGUI_TOOLS
 	TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = ToolWindows.FindOrAdd(ToolNamespace);
 	NamespaceTools.Add(ToolWindow);
+#endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 void FImGuiToolsManager::Tick(float DeltaTime)
@@ -335,4 +357,46 @@ void FImGuiToolsManager::RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand
 		}
 	}
 #endif // #if DRAW_IMGUI_TOOLS
+}
+
+bool FImGuiToolsInputProcessor::HandleKeyDownEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent )
+{
+#if DRAW_IMGUI_TOOLS
+	if (!ToggleInputDown)
+	{
+		if (GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys.ContainsByPredicate([InKeyEvent](const FKey& Key) { return (InKeyEvent.GetKey().GetFName() == Key.GetFName()); }))
+		{
+			KeyCodesDown.AddUnique(InKeyEvent.GetKeyCode());
+			if (KeyCodesDown.Num() == GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys.Num())
+			{
+				ToggleInputDown = true;
+
+				if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
+				{
+					UE_LOG(LogImGuiToolsManager, Log, TEXT("ImGuiTools - Toggling Input"));
+					Module->GetProperties().ToggleInput();
+				}
+			}
+		}
+	}
+#endif // #if DRAW_IMGUI_TOOLS
+	
+	return false;
+}
+
+bool FImGuiToolsInputProcessor::HandleKeyUpEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent )
+{
+#if DRAW_IMGUI_TOOLS
+	if (GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys.ContainsByPredicate([InKeyEvent](const FKey& Key) { return (InKeyEvent.GetKey().GetFName() == Key.GetFName()); }))
+	{
+		KeyCodesDown.Remove(InKeyEvent.GetKeyCode());
+		ToggleInputDown = false;
+	}
+#endif // #if DRAW_IMGUI_TOOLS
+	
+	return false;
+}
+
+void FImGuiToolsInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
+{
 }

@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include <HAL/IConsoleManager.h>
 #include <ConsoleSettings.h>
+#include <Framework/Application/IInputProcessor.h>
+#include <HAL/IConsoleManager.h>
 #include <Tickable.h>
 
 // forward declarations
@@ -18,6 +19,20 @@ namespace ImGuiDebugCVars
 	extern IMGUITOOLS_API TAutoConsoleVariable<bool> CVarImGuiToolsEnabled;
 } // namespace ImGuiDebugCVars
 
+class FImGuiToolsInputProcessor : public IInputProcessor
+{
+public:
+	//~ IInputProcess overrides
+	virtual bool HandleKeyDownEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent ) override;
+	virtual bool HandleKeyUpEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent ) override;
+	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override;
+
+private:
+	TArray<uint32> KeyCodesDown;
+
+	bool ToggleInputDown = false;
+};
+
 class IMGUITOOLS_API FImGuiToolsManager : public FTickableGameObject
 {
 public:
@@ -25,7 +40,10 @@ public:
 	virtual ~FImGuiToolsManager();
 
 	// Used to init/register any tools that internal to this plugin
-	void InitPluginTools();
+	void Initialize();
+	void Deinitialize();
+
+	// Used to register tools externally
 	void RegisterToolWindow(TSharedPtr<FImGuiToolWindow> ToolWindow, FName ToolNamespace = NAME_None);
 
 	// FTickableGameObject
@@ -49,4 +67,6 @@ private:
 	void RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand>& Commands) const;
 
 	FConsoleVariableDelegate OnEnabledCVarValueChanged;
+
+	TSharedPtr<FImGuiToolsInputProcessor> InputProcessor = nullptr;
 };
