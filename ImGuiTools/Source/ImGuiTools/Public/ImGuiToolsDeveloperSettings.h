@@ -9,10 +9,10 @@
 UCLASS(config = ImGui, meta = (DisplayName = "ImGui Tools Settings"))
 class IMGUITOOLS_API UImGuiToolsDeveloperSettings : public UDeveloperSettings
 {
+public:
 	GENERATED_BODY()
 
-public:
-	// Developer Settings
+	UImGuiToolsDeveloperSettings();
 
 	// Display the ImGui Tools Editor Button. Requires Editor restart to take effect.
 	UPROPERTY(config, EditAnywhere)
@@ -25,4 +25,8 @@ public:
 	// Array of keys for a key chord, defining a key short cut to toggle ImGui Input.
 	UPROPERTY(config, EditAnywhere)
 	TArray<FKey> ImGuiToggleInputKeys;
+
+	// Array of keys for a key chord, defining a key short cut to toggle ImGui Visibility.
+	UPROPERTY(config, EditAnywhere)
+	TArray<FKey> ImGuiToggleVisibilityKeys;
 };

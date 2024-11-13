@@ -55,5 +55,9 @@ namespace ImGuiTools
 
 		// Draw details of an instanced struct in table form.
 		void IMGUITOOLS_API DrawInstancedStructTable(const char* StringId, const FInstancedStruct& InstancedStruct, ImVec2 Size = ImVec2(0,0), bool DoTreeNode = false);
+
+		// Draw the value of a property of unknown type on the provided uobject.
+		void IMGUITOOLS_API DrawPropertyValue(const FProperty* Prop, const void* Obj);
+		
 	}	// namespace Utils
 }		// namespace ImGuiTools

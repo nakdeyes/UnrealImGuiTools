@@ -362,22 +362,25 @@ void FImGuiToolsManager::RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand
 bool FImGuiToolsInputProcessor::HandleKeyDownEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent )
 {
 #if DRAW_IMGUI_TOOLS
-	if (!ToggleInputDown)
-	{
-		if (GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys.ContainsByPredicate([InKeyEvent](const FKey& Key) { return (InKeyEvent.GetKey().GetFName() == Key.GetFName()); }))
-		{
-			KeyCodesDown.AddUnique(InKeyEvent.GetKeyCode());
-			if (KeyCodesDown.Num() == GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys.Num())
-			{
-				ToggleInputDown = true;
+	KeyCodesDown.AddUnique({ InKeyEvent.GetKeyCode(), InKeyEvent.GetCharacter() });
+	
+	const bool ToggleVisBefore = ToggleVisDown;
+	const bool ToggleInputBefore = ToggleInputDown;
 
-				if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
-				{
-					UE_LOG(LogImGuiToolsManager, Log, TEXT("ImGuiTools - Toggling Input"));
-					Module->GetProperties().ToggleInput();
-				}
-			}
+	// Will update ToggleVisDown / ToggleInput Down with new state. 
+	CheckForToggleShortcutState();
+
+	if (!ToggleInputBefore && ToggleInputDown)
+	{
+		if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
+		{
+			Module->GetProperties().ToggleInput();
 		}
+	}
+
+	if (!ToggleVisBefore && ToggleVisDown)
+	{
+		ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(!ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->GetBool());
 	}
 #endif // #if DRAW_IMGUI_TOOLS
 	
@@ -387,16 +390,57 @@ bool FImGuiToolsInputProcessor::HandleKeyDownEvent( FSlateApplication& SlateApp,
 bool FImGuiToolsInputProcessor::HandleKeyUpEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent )
 {
 #if DRAW_IMGUI_TOOLS
-	if (GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys.ContainsByPredicate([InKeyEvent](const FKey& Key) { return (InKeyEvent.GetKey().GetFName() == Key.GetFName()); }))
-	{
-		KeyCodesDown.Remove(InKeyEvent.GetKeyCode());
-		ToggleInputDown = false;
-	}
+	KeyCodesDown.Remove({ InKeyEvent.GetKeyCode(), InKeyEvent.GetCharacter() });
+	
+	CheckForToggleShortcutState();
 #endif // #if DRAW_IMGUI_TOOLS
 	
 	return false;
 }
 
-void FImGuiToolsInputProcessor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
+void FImGuiToolsInputProcessor::CheckForToggleShortcutState()
 {
+	// Toggle Input
+	int32 InputKeysDown = 0;
+	bool NewToggleInputDown = true;
+	const TArray<FKey>& ToggleInputKeys = GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleInputKeys;
+	for (const FKey& ToggleInputKey : ToggleInputKeys)
+	{
+		const bool KeyDown = KeyCodesDown.ContainsByPredicate([ToggleInputKey](const KeyCodePair& KeyCode)
+		{
+			const uint32* KeyCodePtr;
+			const uint32* CharCodePtr;
+			FInputKeyManager::Get().GetCodesFromKey(ToggleInputKey, KeyCodePtr, CharCodePtr);
+
+			return (KeyCodePtr && (*KeyCodePtr == KeyCode.Get<0>())) || (CharCodePtr && (*CharCodePtr == KeyCode.Get<1>()));
+		});
+
+		if (KeyDown)
+		{
+			InputKeysDown++;
+		}
+		
+		NewToggleInputDown &= KeyDown;
+	}
+
+	ToggleInputDown = NewToggleInputDown;
+
+	// Toggle Vis
+	bool NewToggleVisDown = true;
+	const TArray<FKey>& ToggleVisKeys = GetDefault<UImGuiToolsDeveloperSettings>()->ImGuiToggleVisibilityKeys;
+	for (const FKey& ToggleVisKey : ToggleVisKeys)
+	{
+		const bool KeyDown = KeyCodesDown.ContainsByPredicate([ToggleVisKey](const KeyCodePair& KeyCode)
+		{
+			const uint32* KeyCodePtr;
+			const uint32* CharCodePtr;
+			FInputKeyManager::Get().GetCodesFromKey(ToggleVisKey, KeyCodePtr, CharCodePtr);
+
+			return (KeyCodePtr && (*KeyCodePtr == KeyCode.Get<0>())) || (CharCodePtr && (*CharCodePtr == KeyCode.Get<1>()));
+		});
+		
+		NewToggleVisDown &= KeyDown;
+	}
+
+	ToggleVisDown = NewToggleVisDown;
 }

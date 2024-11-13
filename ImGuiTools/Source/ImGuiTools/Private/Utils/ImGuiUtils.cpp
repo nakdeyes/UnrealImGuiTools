@@ -25,12 +25,6 @@ bool& ImGuiTools::Utils::FShowCols::GetShowCol(int ColIndex)
 	return ShowColFlags[ColIndex];
 }
 
-//void ImGuiTools::Utils::FShowCols::SetShowCol(int ColIndex, bool NewShowValue)
-//{
-//	// error if ColIndex out of bounds?
-//	ShowColFlags[ColIndex] = NewShowValue;
-//}
-
 int ImGuiTools::Utils::FShowCols::CacheShowColCount()
 {
 	CachedShowColCount = 0;
@@ -105,31 +99,13 @@ void ImGuiTools::Utils::DrawInstancedStructTable(const char* StringId, const FIn
 			{
 				if (Prop)
 				{
-					const void* ObjValuePtr = Prop->ContainerPtrToValuePtr<void>(ItemDataMem);
-												
+
 					ImGui::TableNextColumn();
 					ImGui::Text("%s", Ansi(*Prop->GetName()));
 					ImGui::Text("%s", Ansi(*Prop->GetClass()->GetName()));
 					ImGui::TableNextColumn();
-					if (Prop->IsA(FFloatProperty::StaticClass()))
-					{
-						const float Value = *(const float*)ObjValuePtr;
-						ImGui::Text("% .02f", Value);
-					}
-					else if (Prop->IsA(FIntProperty::StaticClass()))
-					{
-						const int32 Value = *(const int32*)ObjValuePtr;
-						ImGui::Text("% d", Value);
-					}
-					else if (Prop->IsA(FBoolProperty::StaticClass()))
-					{
-						const bool Value = *(const bool*)ObjValuePtr;
-						ImGui::Text(Value ? "true" : "false");
-					}
-					else
-					{
-						ImGui::Text("-");
-					}
+
+					DrawPropertyValue(Prop, ItemDataMem);
 				}
 			}
 										
@@ -142,5 +118,215 @@ void ImGuiTools::Utils::DrawInstancedStructTable(const char* StringId, const FIn
 	{
 		ImGui::TreePop();
 	}
+}
 
+void ImGuiTools::Utils::DrawPropertyValue(const FProperty* Prop, const void* Obj)
+{
+	const void* ObjValuePtr = Prop->ContainerPtrToValuePtr<void>(Obj);
+
+	if (Prop->IsA(FBoolProperty::StaticClass()))
+	{
+		const bool Value = *(const bool*)ObjValuePtr;
+		ImGui::Text(Value ? "true" : "false");
+	}
+	else if (Prop->IsA(FFloatProperty::StaticClass()) ||
+		Prop->IsA(FDoubleProperty::StaticClass()))
+	{
+		const float Value = *(const float*)ObjValuePtr;
+		ImGui::Text("% .05f", Value);
+	}
+	else if (Prop->IsA(FIntProperty::StaticClass()))
+	{
+		const int32 Value = *(const int32*)ObjValuePtr;
+		ImGui::Text("% d", Value);
+	}
+	else if (Prop->IsA(FInt64Property::StaticClass()))
+	{
+		const int64 Value = *(const int64*)ObjValuePtr;
+		ImGui::Text("% lld", Value);
+	}
+	else if (Prop->IsA(FNameProperty::StaticClass()))
+	{
+		const FName Value = *(const FName*)ObjValuePtr;
+		ImGui::Text("%s", Ansi(*Value.ToString()));
+	}
+	else if (Prop->IsA(FStrProperty::StaticClass()))
+	{
+		const FString Value = *(const FString*)ObjValuePtr;
+		ImGui::Text("%s", Ansi(*Value));
+	}
+	else if (Prop->IsA(FTextProperty::StaticClass()))
+	{
+		const FText& Value = *(const FText*)ObjValuePtr;
+		ImGui::Text("%s", Ansi(*Value.ToString()));
+	}
+	else if (const FObjectProperty* ObjProp = CastField<FObjectProperty>(Prop))
+	{
+		UObject* ObjValue = ObjProp->GetObjectPropertyValue_InContainer(Obj);
+		ImGui::Text("%s", ObjValue ? Ansi(*ObjValue->GetName()) : "*none*");
+	}
+	else if (const FWeakObjectProperty* WeakObjProp = CastField<FWeakObjectProperty>(Prop))
+	{
+		UObject* ObjValue = WeakObjProp->GetObjectPropertyValue_InContainer(Obj);
+		ImGui::Text("%s", ObjValue ? Ansi(*ObjValue->GetName()) : "*none*");
+	}
+	else if (const FStructProperty* StructProp = CastField<FStructProperty>(Prop))
+	{
+		UScriptStruct* ScriptStruct = StructProp->Struct.Get();
+		
+		const FString NodeTitle = FString::Printf(TEXT("%s (struct)##%p"), *GetNameSafe(ScriptStruct), ScriptStruct);
+		
+		if (ImGui::TreeNode(Ansi(*NodeTitle)))
+		{
+			static constexpr ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+			if (ImGui::BeginTable("PropertyTable", 2, flags))
+			{
+				ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+				
+				for (FProperty* StructChildProp : TFieldRange<FProperty>(StructProp->Struct))
+				{
+					if (StructChildProp)
+					{
+		
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", Ansi(*StructChildProp->GetName()));
+						ImGui::Text("%s", Ansi(*StructChildProp->GetClass()->GetName()));
+						ImGui::TableNextColumn();
+		
+						DrawPropertyValue(StructChildProp, ScriptStruct);
+					}
+				}
+										
+				ImGui::EndTable();
+			}
+			
+			ImGui::TreePop();
+		}
+	}
+	else if (const FArrayProperty* ArrayProp = CastField<FArrayProperty>(Prop))
+	{
+		if (FProperty* Inner = ArrayProp->Inner)
+		{
+			ImGui::BeginChild(ImGui::GetID(Prop), ImVec2(0, 80.0f), false);
+
+			auto* ObjArray = ArrayProp->ContainerPtrToValuePtr<TArray<float>>(Obj);
+		
+			FString CPPType;
+			ArrayProp->GetCPPType(&CPPType, 0);
+			FName CPPTypeName(CPPType);
+			const TFunction<void(int32, const void*)>* PrintItemFunc = nullptr;
+
+			if (CPPTypeName == TEXT("<float>"))
+			{
+				static const TFunction<void(int32, const void*)> StaticConverstionFunction = [](int32 index, const void* VoidPtr) {
+					const float* TypePtr = static_cast<const float*>(VoidPtr);
+					ImGui::Text("%02d - % .03f", index, *TypePtr);
+				};
+				PrintItemFunc = &StaticConverstionFunction;
+			}
+			else if (CPPTypeName == TEXT("<uint8>"))
+			{
+				static const TFunction<void(int32, const void*)> StaticConverstionFunction = [](int32 index, const void* VoidPtr) {
+					const uint8* TypePtr = static_cast<const uint8*>(VoidPtr);
+					ImGui::Text("%02d - %2hhx", index, *TypePtr);
+				};
+				PrintItemFunc = &StaticConverstionFunction;
+			}
+			else if (CPPTypeName == TEXT("<UObject*>"))
+			{
+				static const TFunction<void(int32, const void*)> StaticConverstionFunction = [](int32 index, const void* VoidPtr) {
+					//const UObject* TypePtr = static_cast<const UObject*>(VoidPtr);
+					//ImGui::Text("%02d - %s", index, Ansi(*(*TypePtr)->GetName()));
+				};
+				PrintItemFunc = &StaticConverstionFunction;
+			}
+			
+			// TODO - type size always reporting 4 with that auto.. but can get type size from the prop.. maybe cast to char size array and do multiples? 
+			ImGui::Text("size: %d - type : %s - type size: %d - prop size: %d", ObjArray->Num(), Ansi(*CPPType), ObjArray->GetTypeSize(), (int)ArrayProp->GetMinAlignment());
+
+			if (PrintItemFunc)
+			{
+				for (int i = 0; i < ObjArray->Num(); ++i)
+				{
+					auto& ArrayEntryData = (*ObjArray)[i];
+
+					(*PrintItemFunc)(i, static_cast<const void*>(&ArrayEntryData));
+				}
+			}
+			else
+			{
+				ImGui::Text(" type '%s' not implemented", Ansi(*CPPType));
+			}
+			
+			ImGui::EndChild();
+		}
+		else
+		{
+			ImGui::Text("ARRAY. Inner Property not found :(");
+		}
+	}
+	else if (const FMapProperty* MapProp = CastField<FMapProperty>(Prop))
+	{
+		ImGui::Text("MAP!! Not Implemented :(");
+	}
+	else if (const FSetProperty* SetProp = CastField<FSetProperty>(Prop))
+	{
+		ImGui::Text("SET!! Not Implemented :(");
+	}
+	else if (const FEnumProperty* ENumProp = CastField<FEnumProperty>(Prop))
+	{
+		if (UEnum* Enum = ENumProp->GetEnum())
+		{
+			const int64 Value = *(const int64*)ObjValuePtr;
+			ImGui::Text("%s", Ansi(*FString::Printf(TEXT("(%d)%s::%s"), Value, *Enum->GetName(), *Enum->GetDisplayNameTextByValue(Value).ToString())));
+		}
+		else
+		{
+			ImGui::Text("ENUM not valid :(");
+		}
+	}
+	else if (const FByteProperty* ByteProp = CastField<FByteProperty>(Prop))
+	{
+		const int64 Value = ((int64)(*(const int8*)ObjValuePtr));
+		if (UEnum* Enum = ByteProp->Enum)
+		{
+			ImGui::Text("%s", Ansi(*FString::Printf(TEXT("(%d)%s::%s"), Value, *Enum->GetName(), *Enum->GetDisplayNameTextByValue(Value).ToString())));
+		}
+		else
+		{
+			ImGui::Text("% lld", Value);
+		}
+	}
+	else if (const FDelegateProperty* DelegateProp = CastField<FDelegateProperty>(Prop))
+	{
+		if (UFunction* SignatureFunction = DelegateProp->SignatureFunction)
+		{
+			ImGui::Text("%s", Ansi(*SignatureFunction->GetName()));
+		}
+		else
+		{
+			ImGui::Text("Delegate has no signature function");
+		}
+	}
+	else if (const FMulticastDelegateProperty* MultiDelegateProp = CastField<FMulticastDelegateProperty>(Prop))
+	{
+		//if (const FMulticastScriptDelegate* MultiDelegate = MultiDelegateProp->GetMulticastDelegate())
+		//{
+
+		//}
+		ImGui::Text("MULTICAST DELEGATE!! Not Implemented :(");
+	}
+	else if (const FMulticastInlineDelegateProperty* MultiInlineDelegateProp = CastField<FMulticastInlineDelegateProperty>(Prop))
+	{
+		ImGui::Text("MULTICAST INLINE DELEGATE!! Not Implemented :(");
+	}
+	else if (const FMulticastSparseDelegateProperty* MultiSparseDelegateProp = CastField<FMulticastSparseDelegateProperty>(Prop))
+	{
+		ImGui::Text("MULTICAST SPARSE DELEGATE!! Not Implemented :(");
+	}
+	else
+	{
+		ImGui::Text("Unimplemented!");
+	}
 }

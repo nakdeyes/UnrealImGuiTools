@@ -11,6 +11,7 @@
 class FImGuiToolWindow;
 
 // types
+typedef TTuple<uint32, uint32> KeyCodePair;
 typedef TMap<FName, TArray<TSharedPtr<FImGuiToolWindow>>> ToolNamespaceMap;
 
 // CVARs
@@ -23,14 +24,16 @@ class FImGuiToolsInputProcessor : public IInputProcessor
 {
 public:
 	//~ IInputProcess overrides
-	virtual bool HandleKeyDownEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent ) override;
-	virtual bool HandleKeyUpEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent ) override;
-	virtual void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override;
+	bool HandleKeyDownEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent ) override;
+	bool HandleKeyUpEvent( FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent ) override;
+	void Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor) override {};
 
 private:
-	TArray<uint32> KeyCodesDown;
+	TArray<KeyCodePair> KeyCodesDown;
 
+	void CheckForToggleShortcutState();
 	bool ToggleInputDown = false;
+	bool ToggleVisDown = false;
 };
 
 class IMGUITOOLS_API FImGuiToolsManager : public FTickableGameObject
