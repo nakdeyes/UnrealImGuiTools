@@ -4,6 +4,9 @@
 
 #include <imgui.h>
 
+// forward declarations
+struct FInstancedStruct;
+
 #define Ansi(ws) StringCast<char>(ws).Get()
 
 namespace ImGuiTools
@@ -49,5 +52,8 @@ namespace ImGuiTools
             void TryCacheWorlds();
             TArray<TWeakObjectPtr<UWorld>> CachedWorlds;
         };
+
+		// Draw details of an instanced struct in table form.
+		void IMGUITOOLS_API DrawInstancedStructTable(const char* StringId, const FInstancedStruct& InstancedStruct, ImVec2 Size = ImVec2(0,0), bool DoTreeNode = false);
 	}	// namespace Utils
 }		// namespace ImGuiTools
