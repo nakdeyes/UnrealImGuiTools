@@ -908,7 +908,9 @@ namespace ImGuiActorCompUtils
 				static bool ActorNameFilterEnabled = true;
 				ImGui::Text("Class Filter"); ImGui::SameLine();
 				ImGui::Checkbox("##ActorClassFilterEnabled", &ActorClassFilterEnabled); ImGui::SameLine();
+				ImGui::PushID("##ActorClassFilter");
 				ActorClassFilter.Draw();
+				ImGui::PopID();
 
 				ImGui::NextColumn();
 
@@ -921,7 +923,9 @@ namespace ImGuiActorCompUtils
 
 				ImGui::Text(" Name Filter"); ImGui::SameLine();
 				ImGui::Checkbox("##ActorNameFilterEnabled", &ActorNameFilterEnabled); ImGui::SameLine();
+				ImGui::PushID("##ActorNameFilter");
 				ActorNameFilter.Draw();
+				ImGui::PopID();
 
 				ImGui::NextColumn();
 
@@ -958,7 +962,7 @@ namespace ImGuiActorCompUtils
                     ActorInfoColWidth,
                     ActorInfoColWidth
                 };
-                static auto SetColumnWidths = [LabelColWidths]() {
+                auto SetColumnWidths = [LabelColWidths]() {
                     for (int i = 0; i < 6; ++i)
                     {
                         ImGui::SetColumnWidth(i, LabelColWidths[i]);
