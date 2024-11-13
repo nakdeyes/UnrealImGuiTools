@@ -20,7 +20,7 @@ namespace ImGuiTools
 	namespace Utils
 	{
           // FShowCols - small object to manage column visibility states.
-		struct FShowCols
+		struct IMGUITOOLS_API FShowCols
 		{
 			FShowCols(int ColCount, bool* OptionalDefaultColArray = nullptr);
 
