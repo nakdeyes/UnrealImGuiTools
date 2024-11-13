@@ -1,6 +1,6 @@
 // Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
-#include "ImGuiToolsRegistrar.h"
+#include "ImGuiGameToolsRegistrar.h"
 
 #if DRAW_IMGUI_TOOLS
 #include <imgui.h>
