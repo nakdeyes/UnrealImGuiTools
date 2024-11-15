@@ -2,6 +2,7 @@
 
 #include "Utils/ImGuiUtils.h"
 
+#include "GameplayTagContainer.h"
 #include "InstancedStruct.h"
 
 ImGuiTools::Utils::FShowCols::FShowCols(int ColCount, bool* OptionalDefaultColArray /*= nullptr*/)
@@ -174,35 +175,7 @@ void ImGuiTools::Utils::DrawPropertyValue(const FProperty* Prop, const void* Obj
 	{
 		UScriptStruct* ScriptStruct = StructProp->Struct.Get();
 		
-		const FString NodeTitle = FString::Printf(TEXT("%s (struct)##%p"), *GetNameSafe(ScriptStruct), ScriptStruct);
-		
-		if (ImGui::TreeNode(Ansi(*NodeTitle)))
-		{
-			static constexpr ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-			if (ImGui::BeginTable("PropertyTable", 2, flags))
-			{
-				ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed);
-				ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-				
-				for (FProperty* StructChildProp : TFieldRange<FProperty>(StructProp->Struct))
-				{
-					if (StructChildProp)
-					{
-		
-						ImGui::TableNextColumn();
-						ImGui::Text("%s", Ansi(*StructChildProp->GetName()));
-						ImGui::Text("%s", Ansi(*StructChildProp->GetClass()->GetName()));
-						ImGui::TableNextColumn();
-		
-						DrawPropertyValue(StructChildProp, ScriptStruct);
-					}
-				}
-										
-				ImGui::EndTable();
-			}
-			
-			ImGui::TreePop();
-		}
+		DrawScriptStructProperty(ScriptStruct, ObjValuePtr);
 	}
 	else if (const FArrayProperty* ArrayProp = CastField<FArrayProperty>(Prop))
 	{
@@ -328,5 +301,76 @@ void ImGuiTools::Utils::DrawPropertyValue(const FProperty* Prop, const void* Obj
 	else
 	{
 		ImGui::Text("Unimplemented!");
+	}
+}
+
+void ImGuiTools::Utils::DrawScriptStructProperty(const UScriptStruct* StructType, const void* Obj)
+{
+	if (StructType == FGameplayTag::StaticStruct())
+	{
+		const FGameplayTag& Value = *(const FGameplayTag*)Obj;
+		ImGui::Text("FGameplayTag: \n%s", Ansi(*Value.ToString()));
+	}
+	else if (StructType == FGameplayTagContainer::StaticStruct())
+	{
+		const FGameplayTagContainer& Value = *(const FGameplayTagContainer*)Obj;
+		ImGui::Text("FGameplayTagContainer: \n%s", Ansi(*Value.ToString()));
+	}
+	else if (StructType == FGameplayTagQuery::StaticStruct())
+	{
+		const FGameplayTagQuery& Value = *(const FGameplayTagQuery*)Obj;
+		ImGui::Text("FGameplayTagQuery: \n%s", Ansi(*Value.GetDescription()));
+	}
+	else if (StructType == TBaseStructure<FVector>::Get())
+	{
+		const FVector& Value = *(const FVector*)Obj;
+		ImGui::Text("FVector| \nx: %.03f, y: %.03f, z: %.03f", Value.X, Value.Y, Value.Z);
+	}
+	else if (StructType == TBaseStructure<FRotator>::Get())
+	{
+		const FRotator& Value = *(const FRotator*)Obj;
+		ImGui::Text("FRotator| \np: %.03f, r: %.03f, y: %.03f", Value.Pitch, Value.Roll, Value.Yaw);
+	}
+	else if (StructType == TBaseStructure<FQuat>::Get())
+	{
+		const FQuat& Value = *(const FQuat*)Obj;
+		ImGui::Text("FQuat| \nx: %.03f, y: %.03f, z: %.03f, w: % .03f", Value.X, Value.Y, Value.Z, Value.W);
+	}
+	else if (StructType == TBaseStructure<FTransform>::Get())
+	{
+		const FTransform& Value = *(const FTransform*)Obj;
+		ImGui::Text("FTransform| loc| x:% .03f, y:% .03f, z:% .03f", Value.GetLocation().X, Value.GetLocation().Y, Value.GetLocation().Z);
+		ImGui::Text("            rot| x:% .03f, y:% .03f, z:% .03f, w:% .03f", Value.GetRotation().X, Value.GetRotation().Y, Value.GetRotation().Z, Value.GetRotation().W);
+		ImGui::Text("          scale| x:% .03f, y:% .03f, z:% .03f", Value.GetScale3D().X, Value.GetScale3D().Y, Value.GetScale3D().Z);
+	}
+	else
+	{
+		const FString NodeTitle = FString::Printf(TEXT("%s (struct)##%p"), *GetNameSafe(StructType), Obj);
+		if (ImGui::TreeNode(Ansi(*NodeTitle)))
+		{
+			static constexpr ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+			if (ImGui::BeginTable("PropertyTable", 2, flags))
+			{
+				ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed);
+				ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+					
+				for (FProperty* StructChildProp : TFieldRange<FProperty>(StructType))
+				{
+					if (StructChildProp)
+					{
+						ImGui::TableNextColumn();
+						ImGui::Text("%s", Ansi(*StructChildProp->GetName()));
+						ImGui::Text("%s", Ansi(*StructChildProp->GetClass()->GetName()));
+						ImGui::TableNextColumn();
+			
+						DrawPropertyValue(StructChildProp, Obj);
+					}
+				}
+											
+				ImGui::EndTable();
+			}
+				
+			ImGui::TreePop();
+		}
 	}
 }

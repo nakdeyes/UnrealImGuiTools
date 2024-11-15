@@ -85,7 +85,7 @@ void FImGuiToolsManager::Initialize()
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiMemoryDebugger()), PluginToolsNamespace);
 	RegisterToolWindow(TSharedPtr<FImGuiToolWindow>(new FImGuiShaderCompilationInfo()), PluginToolsNamespace);
 
-	if (!InputProcessor)
+	if (!InputProcessor && FSlateApplication::IsInitialized())
 	{
 		InputProcessor = MakeShared<FImGuiToolsInputProcessor>();
 		FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);

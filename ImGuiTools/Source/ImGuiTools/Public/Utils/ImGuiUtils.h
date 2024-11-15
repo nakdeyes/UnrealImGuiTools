@@ -58,6 +58,9 @@ namespace ImGuiTools
 
 		// Draw the value of a property of unknown type on the provided uobject.
 		void IMGUITOOLS_API DrawPropertyValue(const FProperty* Prop, const void* Obj);
+
+		// Given a UStruct, draw it either explicitly or generically.
+		void IMGUITOOLS_API DrawScriptStructProperty(const UScriptStruct* StructType, const void* Obj);
 		
 	}	// namespace Utils
 }		// namespace ImGuiTools

@@ -12,6 +12,7 @@ public class ImGuiTools : ModuleRules
 			new string[]
 			{
 				"Core",
+				"GameplayTags",
 				"StructUtils"
 				// ... add other public dependencies that you statically link with here ...
 			}
