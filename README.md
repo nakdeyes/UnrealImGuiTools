@@ -4,7 +4,7 @@ A set of tools and utilities for use with Unreal Engine projects using ImGui.
 # Description
 This plugin includes tools for use with Unreal Engine projects. It also provides a small framework to make writing your own game specific tool windows a bit more quickly and easily.
 
-The plugin itself does not contain ImGui, but has [segross' UnrealImGui plugin](https://github.com/segross/UnrealImGui) as a dependant plugin. This plugin, segross' plugin, and [Omar Cornut's fantastic Dear ImGui](https://github.com/ocornut/imgui) are all released under MIT license.
+The plugin itself does not contain ImGui, but has ~~[segross' UnrealImGui plugin](https://github.com/segross/UnrealImGui)~~ [Vescodes' UE ImGui plugin](https://github.com/VesCodes/ImGui) as a dependant plugin. This plugin, ~~segross'~~ Vescodes' plugin, and [Omar Cornut's fantastic Dear ImGui](https://github.com/ocornut/imgui) are all released under MIT license.
 
 ### Compatibility
 Most of these tools were written with UE 4.27, then it was later updated to UE 5.0 (it was a very minimal change). So currently only UE 5.0 is currently supported, but I plan to formalize 4.27 support with a flag or something in the future. For now, if you drop this in 4.27 it will still mostly work with perhaps 1 or 2 tweaks.
