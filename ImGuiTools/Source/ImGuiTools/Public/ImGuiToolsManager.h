@@ -36,7 +36,7 @@ private:
 	bool ToggleVisDown = false;
 };
 
-class IMGUITOOLS_API FImGuiToolsManager : public FTickableGameObject
+class IMGUITOOLS_API FImGuiToolsManager
 {
 public:
 	FImGuiToolsManager();
@@ -49,18 +49,14 @@ public:
 	// Used to register tools externally
 	void RegisterToolWindow(TSharedPtr<FImGuiToolWindow> ToolWindow, FName ToolNamespace = NAME_None);
 
-	// FTickableGameObject
-	virtual TStatId GetStatId() const override;
-	virtual ETickableTickType GetTickableTickType() const override;
-	virtual bool IsTickable() const override;
-	virtual void Tick(float DeltaTime) override;
-	// ~FTickableGameObject
-
 	ToolNamespaceMap& GetToolsWindows();
 	TSharedPtr<FImGuiToolWindow> GetToolWindow(const FString& ToolWindowName, FName ToolNamespace = NAME_None);
 
 	static void ToggleToolVisCommand(const TArray<FString>& Args);
     static void ToggleToolsVisCommand(const TArray<FString>& Args);
+
+	// Delegate callbacks
+	void OnWorldPostActorTick(UWorld* World, ELevelTick TickType, float DeltaSeconds);
 
 private:
 	ToolNamespaceMap ToolWindows;
@@ -72,4 +68,6 @@ private:
 	FConsoleVariableDelegate OnEnabledCVarValueChanged;
 
 	TSharedPtr<FImGuiToolsInputProcessor> InputProcessor = nullptr;
+
+	FDelegateHandle OnWorldPostActorTickDelegateHandle;
 };

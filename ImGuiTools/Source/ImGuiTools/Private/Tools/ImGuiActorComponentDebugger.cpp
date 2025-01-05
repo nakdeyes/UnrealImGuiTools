@@ -282,7 +282,7 @@ namespace ImGuiActorCompUtils
 			}
 		}
 
-		static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
+		static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap;
 		ImGuiTreeNodeFlags node_flags = base_flags;
 		if (ForceOpen)
 		{
@@ -345,7 +345,7 @@ namespace ImGuiActorCompUtils
 	// Draw ImGui for this cached class - Component version - provide a pointer to an optional parent container to draw Child classes
 	void CachedClass_DrawImGui_Component(FCachedClassInfo& CachedClassInfo, TArray<TWeakObjectPtr<UActorComponent>>& ComponentWindows, TArray<FCachedClassInfo>* OptionalParentContainer = nullptr, bool ForceOpen = false, bool ForceOpenChildren = false)
 	{
-		static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap;
+		static ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowOverlap;
 		ImGuiTreeNodeFlags node_flags = base_flags;
 		if (ForceOpen)
 		{
@@ -759,8 +759,6 @@ namespace ImGuiActorCompUtils
 				WorldSettings.ClassSortType = (EClassSortType)SortTypeComboValue;
 
 				ImGui::Separator();
-                
-				ImGui::Columns(0);
 
                 // layout config
                 static const float ActorCountColWidth = 60.0f;

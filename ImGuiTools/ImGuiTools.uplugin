@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "0.2",
+	"VersionName": "0.3",
 	"FriendlyName": "ImGuiTools",
 	"Description": "A set of tools and utilities for use with Unreal Engine projects using ImGui.",
 	"Category": "Other",
@@ -15,7 +15,7 @@
 	"Modules": [
 		{
 			"Name": "ImGuiTools",
-			"Type": "ClientOnlyNoCommandlet",
+			"Type": "Runtime",
 			"LoadingPhase": "PreLoadingScreen",
 			"TargetConfigurationDenyList": [ "Shipping" ]
 		},

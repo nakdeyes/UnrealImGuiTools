@@ -2,24 +2,26 @@
 
 #include "ImGuiToolsManager.h"
 
-#include "ImGuiTools.h"
 #include "ImGuiToolsDeveloperSettings.h"
+
+#if DRAW_IMGUI_TOOLS
+
+#include <Engine/Console.h>
+
+#include "ImGuiTools.h"
+#include "ImGuiToolsGameDebugger.h"
 #include "Tools/ImGuiActorComponentDebugger.h"
 #include "Tools/ImGuiCDOExplorer.h"
 #include "Tools/ImGuiFileLoadDebugger.h"
 #include "Tools/ImGuiMemoryDebugger.h"
 #include "Tools/ImGuiShaderCompilationInfo.h"
-
-#include <Engine/Console.h>
-#include <ImGuiModule.h>
-
-#include "ImGuiToolsGameDebugger.h"
-
-#if DRAW_IMGUI_TOOLS
-#include "ImGuiTools.h"
 #include "Utils/ImGuiUtils.h"
+
+// ImGui Plugin
+#include "ImGuiContext.h"
+#include "ImGuiModule.h"
 #include <imgui.h>
-#endif	  // #if DRAW_IMGUI_TOOLS
+#include <imgui_internal.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogImGuiToolsManager, Log, All);
 
@@ -31,48 +33,22 @@ FAutoConsoleCommand ToggleToolVis(*ToggleToolVisCVARName, TEXT("Toggle the visib
 FAutoConsoleCommand ToggleToolsVis(TEXT("imgui.tools.toggle_enabled"), TEXT("Master toggle for ImGui Tools. Will also toggle on ImGui drawing and input, so this is great if ImGui Tools is your main interactions with ImGui."),
     FConsoleCommandWithArgsDelegate::CreateStatic(&FImGuiToolsManager::ToggleToolsVisCommand));
 
+#endif	  // #if DRAW_IMGUI_TOOLS
+
 FImGuiToolsManager::FImGuiToolsManager()
 	: DrawImGuiDemo(false)
 	, ShowFPS(true)
 {
+#if DRAW_IMGUI_TOOLS
 	UConsole::RegisterConsoleAutoCompleteEntries.AddRaw(this, &FImGuiToolsManager::RegisterAutoCompleteEntries);
-	
-	OnEnabledCVarValueChanged.BindLambda([](IConsoleVariable* CVar) {
-		if (!GetDefault<UImGuiToolsDeveloperSettings>()->SetImGuiInputOnToolsEnabled)
-		{
-			return;
-		}
-
-		if (FImGuiModule* ImGuiModule = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
-		{
-			ImGuiModule->SetInputMode(CVar->GetBool());
-		}
-	});
-	ImGuiDebugCVars::CVarImGuiToolsEnabled->SetOnChangedCallback(OnEnabledCVarValueChanged);
+#endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 FImGuiToolsManager::~FImGuiToolsManager()
 {
-	UConsole::RegisterConsoleAutoCompleteEntries.RemoveAll(this);
-}
-
-TStatId FImGuiToolsManager::GetStatId() const
-{
-	RETURN_QUICK_DECLARE_CYCLE_STAT(FImGuiToolsManager, STATGROUP_Tickables);
-}
-
-ETickableTickType FImGuiToolsManager::GetTickableTickType() const
-{
 #if DRAW_IMGUI_TOOLS
-	return ETickableTickType::Conditional;
-#else
-	return ETickableTickType::Never;
+	UConsole::RegisterConsoleAutoCompleteEntries.RemoveAll(this);
 #endif	  // #if DRAW_IMGUI_TOOLS
-}
-
-bool FImGuiToolsManager::IsTickable() const
-{
-	return ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread();
 }
 
 void FImGuiToolsManager::Initialize()
@@ -90,12 +66,23 @@ void FImGuiToolsManager::Initialize()
 		InputProcessor = MakeShared<FImGuiToolsInputProcessor>();
 		FSlateApplication::Get().RegisterInputPreProcessor(InputProcessor);
 	}
+	
+	OnWorldPostActorTickDelegateHandle = FWorldDelegates::OnWorldPostActorTick.AddLambda([&](UWorld* World, ELevelTick TickType, float DeltaSeconds)
+	{
+		OnWorldPostActorTick(World, TickType, DeltaSeconds);
+	});
 #endif	  // #if DRAW_IMGUI_TOOLS
 }
 
 void FImGuiToolsManager::Deinitialize()
 {
 #if DRAW_IMGUI_TOOLS
+	if (OnWorldPostActorTickDelegateHandle.IsValid())
+	{
+		FWorldDelegates::OnWorldPostActorTick.Remove(OnWorldPostActorTickDelegateHandle);
+		OnWorldPostActorTickDelegateHandle.Reset();
+	}
+	
 	if (InputProcessor)
 	{
 		InputProcessor = nullptr;
@@ -111,126 +98,105 @@ void FImGuiToolsManager::RegisterToolWindow(TSharedPtr<FImGuiToolWindow> ToolWin
 #endif	  // #if DRAW_IMGUI_TOOLS
 }
 
-void FImGuiToolsManager::Tick(float DeltaTime)
+void FImGuiToolsManager::OnWorldPostActorTick(UWorld* World, ELevelTick TickType, float DeltaSeconds)
 {
 #if DRAW_IMGUI_TOOLS
-	// Draw Main Menu Bar
-	if (ImGui::BeginMainMenuBar())
+	if (!ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread())
 	{
-		if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
+		return;
+	}
+	
+	if (!IsValid(World) || !World->IsGameWorld() || (World->GetNetMode() == NM_DedicatedServer))
+	{
+		return;
+	}
+	
+	TSharedPtr<FImGuiContext> ImGuiContext = FImGuiModule::Get().FindOrCreateSessionContext();
+
+	if (ImGuiContext.IsValid())
+	{
+		ImGui::SetCurrentContext(*ImGuiContext);
+
+		if (ImGui::GetCurrentContext()->WithinFrameScope)
 		{
-			if (ImGui::BeginMenu("ImGui"))
+			ImGuiContext->BeginFrame();
+			
+			// Draw Main Menu Bar
+			if (ImGui::BeginMainMenuBar())
 			{
-				bool InputCheckboxVal = Module->GetProperties().IsInputEnabled();
-				ImGui::Checkbox("Input Enabled", &InputCheckboxVal);
-				if (InputCheckboxVal != Module->GetProperties().IsInputEnabled())
+				if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
 				{
-					Module->GetProperties().ToggleInput();
+					if (ImGui::BeginMenu("ImGui"))
+					{
+						ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Misc");
+						ImGui::Checkbox("Draw ImGui demo", &DrawImGuiDemo);
+						ImGui::EndMenu();
+					}
+
 				}
 
-				if (ImGui::BeginMenu("Input Options"))
+				if (ImGui::BeginMenu("UETools"))
 				{
-					ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Keyboard");
-				
-					InputCheckboxVal = Module->GetProperties().IsKeyboardNavigationEnabled();
-					ImGui::Checkbox("Keyboard Navigation", &InputCheckboxVal);
-					if (InputCheckboxVal != Module->GetProperties().IsKeyboardNavigationEnabled())
+					if (ImGui::BeginMenu("Options"))
 					{
-						Module->GetProperties().ToggleKeyboardNavigation();
-					}
-					InputCheckboxVal = Module->GetProperties().IsKeyboardInputShared();
-					ImGui::Checkbox("Keyboard Input Shared", &InputCheckboxVal);
-					if (InputCheckboxVal != Module->GetProperties().IsKeyboardInputShared())
-					{
-						Module->GetProperties().ToggleKeyboardInputSharing();
-					}
-					InputCheckboxVal = Module->GetProperties().IsMouseInputShared();
-					ImGui::Checkbox("Mouse Input Shared", &InputCheckboxVal);
-					if (InputCheckboxVal != Module->GetProperties().IsMouseInputShared())
-					{
-						Module->GetProperties().ToggleMouseInputSharing();
+						ImGui::Checkbox("Show FPS", &ShowFPS);
+						ImGui::EndMenu();
 					}
 
-					ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Gamepad");
-
-					InputCheckboxVal = Module->GetProperties().IsGamepadNavigationEnabled();
-					ImGui::Checkbox("Gameplay Navigation", &InputCheckboxVal);
-					if (InputCheckboxVal != Module->GetProperties().IsGamepadNavigationEnabled())
+					for (TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolWindows)
 					{
-						Module->GetProperties().ToggleGamepadNavigation();
+						ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", Ansi(*NamespaceToolWindows.Key.ToString()));
+						TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = NamespaceToolWindows.Value;
+						for (TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceTools)
+						{
+							const FString ToolName = ToolWindow->GetToolName();
+							ImGui::Checkbox(Ansi(*ToolName), &ToolWindow->GetEnabledRef());
+						}
+						ImGui::Separator();
 					}
-					InputCheckboxVal = Module->GetProperties().IsGamepadInputShared();
-					ImGui::Checkbox("Gameplay Input Shared", &InputCheckboxVal);
-					if (InputCheckboxVal != Module->GetProperties().IsGamepadInputShared())
-					{
-						Module->GetProperties().ToggleGamepadInputSharing();
-					}
-
 					ImGui::EndMenu();
 				}
 
-				ImGui::Separator();
-				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Misc");
-				ImGui::Checkbox("Draw ImGui demo", &DrawImGuiDemo);
-				ImGui::EndMenu();
+				// Draw Game Debugger menu
+				FImGuiToolsGameDebugger::DrawMainImGuiMenu();
+				
+				if (ShowFPS)
+				{
+					ImGui::SameLine(180.0f);
+					const int FPS = static_cast<int>(1.0f / DeltaSeconds);
+					const float Millis = DeltaSeconds * 1000.0f;
+					ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "%03d FPS %.02f ms", FPS, Millis);
+				}
+
+				ImGui::SameLine(310.0f);
+#if WITH_EDITOR
+				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "'Shift+F1' to toggle input in editor.");
+#else
+				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "'~'/Console to toggle input.");
+#endif
+				
+				ImGui::EndMainMenuBar();
 			}
 
-		}
-
-		if (ImGui::BeginMenu("UETools"))
-		{
-			if (ImGui::BeginMenu("Options"))
+			if (DrawImGuiDemo)
 			{
-				ImGui::Checkbox("Show FPS", &ShowFPS);
-				ImGui::EndMenu();
+				// Draw imgui demo window if requested
+				ImGui::ShowDemoWindow(&DrawImGuiDemo);
 			}
 
+			// Update any active tools:
 			for (TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolWindows)
 			{
-				ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", Ansi(*NamespaceToolWindows.Key.ToString()));
-				TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = NamespaceToolWindows.Value;
-				for (TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceTools)
+				for (TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceToolWindows.Value)
 				{
-					const FString ToolName = ToolWindow->GetToolName();
-					ImGui::Checkbox(Ansi(*ToolName), &ToolWindow->GetEnabledRef());
+					if (ToolWindow.IsValid())
+					{
+						ToolWindow->UpdateTool(DeltaSeconds);
+					}
 				}
-				ImGui::Separator();
 			}
-			ImGui::EndMenu();
-		}
-
-		// Draw Game Debugger menu
-		FImGuiToolsGameDebugger::DrawMainImGuiMenu();
-		
-		if (ShowFPS)
-		{
-			ImGui::SameLine(180.0f);
-			const int FPS = static_cast<int>(1.0f / DeltaTime);
-			const float Millis = DeltaTime * 1000.0f;
-			ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "%03d FPS %.02f ms", FPS, Millis);
-		}
-
-		ImGui::SameLine(310.0f);
-		ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "'imgui.toggleinput' to toggle input, or set HotKey in ImGui Plugin prefs.");
-
-		ImGui::EndMainMenuBar();
-	}
-
-	if (DrawImGuiDemo)
-	{
-		// Draw imgui demo window if requested
-		ImGui::ShowDemoWindow(&DrawImGuiDemo);
-	}
-
-	// Update any active tools:
-	for (TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolWindows)
-	{
-		for (TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceToolWindows.Value)
-		{
-			if (ToolWindow.IsValid())
-			{
-				ToolWindow->UpdateTool(DeltaTime);
-			}
+			
+			ImGuiContext->EndFrame();
 		}
 	}
 #endif	  // #if DRAW_IMGUI_TOOLS
@@ -369,14 +335,6 @@ bool FImGuiToolsInputProcessor::HandleKeyDownEvent( FSlateApplication& SlateApp,
 
 	// Will update ToggleVisDown / ToggleInput Down with new state. 
 	CheckForToggleShortcutState();
-
-	if (!ToggleInputBefore && ToggleInputDown)
-	{
-		if (FImGuiModule* Module = FModuleManager::GetModulePtr<FImGuiModule>("ImGui"))
-		{
-			Module->GetProperties().ToggleInput();
-		}
-	}
 
 	if (!ToggleVisBefore && ToggleVisDown)
 	{
