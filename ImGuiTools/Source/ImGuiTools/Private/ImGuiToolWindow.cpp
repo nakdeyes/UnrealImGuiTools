@@ -22,9 +22,12 @@ const FString& FImGuiToolWindow::GetToolName()
 
 void FImGuiToolWindow::UpdateTool(float DeltaTime)
 {
-	if (bEnabled && ImGui::Begin(Ansi(*GetToolName()), &bEnabled, WindowFlags))
+	if (bEnabled)
 	{
-		ImGuiUpdate(DeltaTime);
+		if (ImGui::Begin(Ansi(*GetToolName()), &bEnabled, WindowFlags))
+		{
+			ImGuiUpdate(DeltaTime);
+		}
 
 		ImGui::End();
 	}

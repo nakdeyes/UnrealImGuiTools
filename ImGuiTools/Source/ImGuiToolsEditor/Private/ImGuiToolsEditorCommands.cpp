@@ -3,16 +3,21 @@
 #include "ImGuiToolsEditorCommands.h"
 
 #include "ImGuiTools.h"
+#include "ImGuiToolWindow.h"
 #include "ImGuiToolsDeveloperSettings.h"
 #include "ImGuiToolsManager.h"
-#include "ImGuiToolWindow.h"
+#include "ImGuiToolsEditorStyle.h"
 
 #include <ImGuiModule.h>
 #include <Internationalization/Text.h>
 #include <LevelEditor.h>
-
+ 
+#include "ImGuiToolsEditorWidget.h"
+ 
 #define LOCTEXT_NAMESPACE "FImGuiToolsModule"
-
+ 
+//______________________________________________________________________________________________________________________
+ 
 namespace ImGuiEditorUtils
 {
 	bool IsModuleLoaded(FName ModuleName)
@@ -40,7 +45,9 @@ namespace ImGuiEditorUtils
         return RequiredModulesLoaded && LevelEditorModuleReady;
 	}
 }
-
+ 
+//______________________________________________________________________________________________________________________
+ 
 FImGuiToolsEditorCommands::FImGuiToolsEditorCommands()
     : TCommands<FImGuiToolsEditorCommands>(TEXT("ImGuiTools"), NSLOCTEXT("Contexts", "ImGuiTools", "ImGuiTools Plugin"), NAME_None, FImGuiToolsEditorStyle::GetStyleSetName())
 {
@@ -50,7 +57,9 @@ void FImGuiToolsEditorCommands::RegisterCommands()
 {
 	UI_COMMAND(ImGuiToolEnabledCommand, "ImGuiTools Enabled", "When enabled, the ImGui Tools menu bar will be drawn on screen. Can also be controlled via CVAR 'imgui.tools.enabled'.", EUserInterfaceActionType::ToggleButton, FInputGesture());
 }
-
+ 
+//______________________________________________________________________________________________________________________
+ 
 // Entry point to register elements. Do it now if able, else wait until able then do it.
 void FImGuiToolsEditorElements::RegisterElements()
 {
@@ -94,15 +103,73 @@ void FImGuiToolsEditorElements::RegisterElements_Internal()
 			if (ImGuiToolsModule.GetToolsManager().IsValid())
 			{
 				ToolNamespaceMap& ToolsWindows = ImGuiToolsModule.GetToolsManager()->GetToolsWindows();
-				for (const TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolsWindows)
+				for (TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolsWindows)
 				{
 					MenuBuilder.BeginSection(FName(FString::Printf(TEXT("ImGuiTools.%s"), *NamespaceToolWindows.Key.ToString())), FText::FromName(NamespaceToolWindows.Key));
 					const TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = NamespaceToolWindows.Value;
-					for (const TSharedPtr<FImGuiToolWindow>& ToolWindow : NamespaceTools)
+					for (TSharedPtr<FImGuiToolWindow> ToolWindow : NamespaceTools)
 					{
-						MenuBuilder.AddMenuEntry(FText::FromString(FString(ToolWindow->GetToolName())), FText(), FSlateIcon(),
-							FUIAction(FExecuteAction::CreateLambda([ToolWindow]() { ToolWindow->EnableTool(!ToolWindow->GetEnabledRef()); }), FCanExecuteAction(),
-								FIsActionChecked::CreateLambda([ToolWindow]() -> bool { return ToolWindow->GetEnabledRef(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+						if (!ToolWindow->IsEditorToolAllowed())
+						{
+							MenuBuilder.AddMenuEntry(FText::FromString(FString(ToolWindow->GetToolName())), FText(), FSlateIcon(),
+								FUIAction(FExecuteAction::CreateLambda([ToolWindow]() { ToolWindow->EnableTool(!ToolWindow->GetEnabledRef()); }), FCanExecuteAction(),
+									FIsActionChecked::CreateLambda([ToolWindow]() -> bool { return ToolWindow->GetEnabledRef(); })), NAME_None, EUserInterfaceActionType::ToggleButton);
+						}
+						else
+						{
+							FString EditorToolName = FString::Printf(TEXT("%s ImGuiEditorWidget"), *ToolWindow->GetToolName());
+							FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
+								*EditorToolName,
+								FOnSpawnTab::CreateLambda([ToolWindow] (const FSpawnTabArgs& args)
+								{
+									TSharedRef<SDockTab> MyTab = SNew(SDockTab)
+										.TabRole(ETabRole::NomadTab)
+										[
+											SNew(SImGuiToolsEditorWidget) // Embed the custom ImGui widget here
+											.ToolWindow(ToolWindow) // Explicitly capture ToolWindow
+										];
+									return MyTab;
+								})
+							)
+							.SetDisplayName(FText::FromString(EditorToolName))
+							.SetMenuType(ETabSpawnerMenuType::Hidden);
+							
+							MenuBuilder.AddWidget(
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(FMargin(13, 0))
+								[
+									SNew(SCheckBox)
+									.IsChecked_Lambda([ToolWindow]() { return ToolWindow->GetEnabledRef() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })
+									.OnCheckStateChanged_Lambda([ToolWindow](ECheckBoxState NewState)
+									{
+										 ToolWindow->EnableTool(!ToolWindow->GetEnabledRef());
+									})
+									.Style(FAppStyle::Get(), "Menu.CheckBox") // Ensures it looks like a menu checkbox
+									.Padding(FMargin(13, 0))
+									[
+										SNew(STextBlock).Text(FText::FromString(FString(ToolWindow->GetToolName()))) // Checkbox label
+									]
+								]
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								.HAlign(HAlign_Right)
+								.Padding(FMargin(12, 0))
+								[
+									SNew(SButton)
+									.Text(FText::FromString("Editor"))
+									.HAlign(HAlign_Right)
+									.OnClicked_Lambda([EditorToolName]()
+									{
+										UE_LOG(LogTemp, Log, TEXT("Button 2 Clicked"));
+										FGlobalTabmanager::Get()->TryInvokeTab(FTabId(*EditorToolName));
+										return FReply::Handled();
+									})
+								],
+								FText::GetEmpty() // No label above
+							);
+						}
 					}
 					MenuBuilder.EndSection();
 				}
@@ -148,5 +215,7 @@ void FImGuiToolsEditorElements::RegisterElements_Internal()
 		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(NewToolbarExtender);
 	}
 }
-
+ 
+//______________________________________________________________________________________________________________________
+ 
 #undef LOCTEXT_NAMESPACE

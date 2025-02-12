@@ -13,6 +13,7 @@ public:
 
 	// FImGuiToolWindow Interface
 	virtual void ImGuiUpdate(float DeltaTime) override;
+	virtual bool IsEditorToolAllowed() override { return true;}
 	// FImGuiToolWindow Interface
 
 	void SelectClassLoadSubclasses(UClass* ParentClass, bool LoadAll);

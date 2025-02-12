@@ -20,6 +20,7 @@ public:
 	bool& GetEnabledRef();
 	const FString& GetToolName();
 	virtual void UpdateTool(float DeltaTime);
+	virtual bool IsEditorToolAllowed() { return false;};
 	
 protected:
 	bool bEnabled = false;

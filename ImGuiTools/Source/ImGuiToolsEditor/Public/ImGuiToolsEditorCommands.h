@@ -1,15 +1,15 @@
 // Distributed under the MIT License (MIT) (see accompanying LICENSE file)
 
 #pragma once
-
-#include "ImGuiToolsEditorStyle.h"
-
+ 
 #include <CoreMinimal.h>
 #include <Framework/Commands/Commands.h>
 
 // forward declarations
 class FImGuiToolWindow;
-
+ 
+//______________________________________________________________________________________________________________________
+ 
 class FImGuiToolsEditorCommands : public TCommands<FImGuiToolsEditorCommands>
 {
 public:
@@ -21,7 +21,9 @@ public:
 public:
 	TSharedPtr<FUICommandInfo> ImGuiToolEnabledCommand;
 };
-
+ 
+//______________________________________________________________________________________________________________________
+ 
 class FImGuiToolsEditorElements
 {
 public:
@@ -35,6 +37,7 @@ private:
 	// Actually registers the elements, assuming the level editor module is present. 
 	void RegisterElements_Internal();
 	TSharedPtr<FUICommandList> CommandList;
-
-
 };
+ 
+//______________________________________________________________________________________________________________________
+ 
