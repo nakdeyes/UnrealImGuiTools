@@ -25,6 +25,11 @@ public:
 
 protected:
 	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
+	// Window flags that will be passed to the ImGui window that contains whatever you draw in ImGuiUpdate();
+	ImGuiWindowFlags WindowFlags = ImGuiWindowFlags_NoTitleBar |
+		                           ImGuiWindowFlags_NoResize |
+                                   ImGuiWindowFlags_NoMove;
  
 private:
 	ImVec2 CachedWindowPosition = ImVec2(0, 0);

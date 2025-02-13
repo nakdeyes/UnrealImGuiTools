@@ -11,6 +11,10 @@ SImGuiToolsEditorWidget::~SImGuiToolsEditorWidget()
 void SImGuiToolsEditorWidget::Construct(const FArguments& InArgs)
 {
 	ToolWindowPtr = InArgs._ToolWindow;
+	if (ToolWindowPtr.IsValid())
+	{
+		WindowFlags = WindowFlags | ToolWindowPtr->GetFlags();
+	}
 }
 
 void SImGuiToolsEditorWidget::ImGuiUpdate()

@@ -15,9 +15,14 @@ bool& FImGuiToolWindow::GetEnabledRef()
 	return bEnabled;
 }
 
-const FString& FImGuiToolWindow::GetToolName()
+const FString& FImGuiToolWindow::GetToolName() const
 {
 	return ToolName;
+}
+
+const ImGuiWindowFlags& FImGuiToolWindow::GetFlags() const
+{
+	return WindowFlags;
 }
 
 void FImGuiToolWindow::UpdateTool(float DeltaTime)

@@ -41,12 +41,7 @@ void SImGuiEditorWidget::Tick(const FGeometry& AllottedGeometry, const double In
 			ImGui::SetNextWindowPos(WindowPos); // Top-left corner
 			ImGui::SetNextWindowSize(WindowSize); // Full size
 
-			// Define window flags to make it behave like a full-screen panel
-			ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar |
-										   ImGuiWindowFlags_NoResize |
-										   ImGuiWindowFlags_NoMove;
-
-			ImGui::Begin("ImGuiEditorWidgetRoot", nullptr, windowFlags);
+			ImGui::Begin("ImGuiEditorWidgetRoot", nullptr, WindowFlags);
 
 			ImGuiUpdate();
 

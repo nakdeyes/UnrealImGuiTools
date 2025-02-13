@@ -18,7 +18,8 @@ public:
 	// Called by ImGuiToolsManager
 	void EnableTool(bool bNewEnabled);
 	bool& GetEnabledRef();
-	const FString& GetToolName();
+	const FString& GetToolName() const;
+	const ImGuiWindowFlags& GetFlags() const;
 	virtual void UpdateTool(float DeltaTime);
 	virtual bool IsEditorToolAllowed() { return false;};
 	
