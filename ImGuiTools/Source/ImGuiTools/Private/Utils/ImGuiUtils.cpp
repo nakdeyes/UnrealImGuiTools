@@ -374,3 +374,13 @@ void ImGuiTools::Utils::DrawScriptStructProperty(const UScriptStruct* StructType
 		}
 	}
 }
+
+ImVec4 ImGuiTools::Utils::InterpolateImGuiColor(const ImVec4& StartColor, const ImVec4& EndColor, float Time)
+{
+	return ImVec4(
+		StartColor.x + ((EndColor.x - StartColor.x) * Time),
+		StartColor.y + ((EndColor.y - StartColor.y) * Time),
+		StartColor.z + ((EndColor.z - StartColor.z) * Time),
+		StartColor.w + ((EndColor.w - StartColor.w) * Time)
+	);
+}

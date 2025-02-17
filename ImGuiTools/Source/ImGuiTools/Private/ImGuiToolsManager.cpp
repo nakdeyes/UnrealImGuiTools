@@ -33,6 +33,14 @@ FAutoConsoleCommand ToggleToolVis(*ToggleToolVisCVARName, TEXT("Toggle the visib
 FAutoConsoleCommand ToggleToolsVis(TEXT("imgui.tools.toggle_enabled"), TEXT("Master toggle for ImGui Tools. Will also toggle on ImGui drawing and input, so this is great if ImGui Tools is your main interactions with ImGui."),
     FConsoleCommandWithArgsDelegate::CreateStatic(&FImGuiToolsManager::ToggleToolsVisCommand));
 
+#if WITH_EDITOR
+
+static FString LaunchEditorToolCVARName = TEXT("imgui.tools.launch_editor_tool");
+FAutoConsoleCommand LaunchEditorTool(*LaunchEditorToolCVARName, TEXT("Launch an editor tool panel by name for tools that support it."),
+    FConsoleCommandWithArgsDelegate::CreateStatic(&FImGuiToolsManager::LaunchEditorTool));
+
+#endif    // #if WITH_EDITOR
+
 #endif	  // #if DRAW_IMGUI_TOOLS
 
 FImGuiToolsManager::FImGuiToolsManager()
@@ -307,6 +315,53 @@ void FImGuiToolsManager::ToggleToolsVisCommand(const TArray<FString>& Args)
 #endif	  // #if DRAW_IMGUI_TOOLS
 }
 
+#if WITH_EDITOR
+/*static*/ void FImGuiToolsManager::LaunchEditorTool(const TArray<FString>& Args)
+{
+#if DRAW_IMGUI_TOOLS
+	FImGuiToolsModule& ImGuiToolsModule = FModuleManager::GetModuleChecked<FImGuiToolsModule>("ImGuiTools");
+	if (!ImGuiToolsModule.GetToolsManager().IsValid())
+	{
+		UE_LOG(LogTemp, Log, TEXT("CVAR'imgui.tools.launch_editor_tool' was unable to find the ImGuiTools Module."));
+		return;
+	}
+
+	if (Args.Num() < 1)
+	{
+		UE_LOG(LogTemp, Log, TEXT("CVAR'imgui.tools.launch_editor_tool' must be provided a string parameter tool name to toggle visibility."));
+		return;
+	}
+
+	FString ToolWindowName(TEXT(""));
+	for (int i = 0; i < Args.Num(); ++i)
+	{
+		ToolWindowName += Args[i];
+		const bool IsLast = (i == (Args.Num() - 1));
+		if (!IsLast)
+		{
+			ToolWindowName += TEXT(" ");
+		}
+	}
+
+	TSharedPtr<FImGuiToolWindow> FoundTool = ImGuiToolsModule.GetToolsManager()->GetToolWindow(ToolWindowName);
+	if (!FoundTool.IsValid())
+	{
+		UE_LOG(LogTemp, Log, TEXT("CVAR'imgui.tools.launch_editor_tool' was unable to find a tool with name: '%s'"), *ToolWindowName);
+		return;
+	}
+
+	if (!FoundTool->IsEditorToolAllowed())
+	{
+		UE_LOG(LogTemp, Log, TEXT("CVAR'imgui.tools.launch_editor_tool' tool '%s' is not set to be an editor tool. To enabled, override ::IsEditorToolsAllowed()."), *ToolWindowName);
+		return;	
+	}
+
+	const FString EditorToolName = FString::Printf(TEXT("%s ImGuiEditorWidget"), *FoundTool->GetToolName());
+	FGlobalTabmanager::Get()->TryInvokeTab(FTabId(*EditorToolName));
+#endif	  // #if DRAW_IMGUI_TOOLS
+}
+#endif    // #if WITH_EDITOR
+
 void FImGuiToolsManager::RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand>& Commands) const
 {
 #if DRAW_IMGUI_TOOLS
@@ -319,7 +374,19 @@ void FImGuiToolsManager::RegisterAutoCompleteEntries(TArray<FAutoCompleteCommand
 			const FString ToolName = ToolWindow->GetToolName();
 			Entry.Command = FString::Printf(TEXT("%s %s"), *ToggleToolVisCVARName, *ToolName);
 			Entry.Desc = FString::Printf(TEXT("Toggle visibility for ImGui Tool '%s' in namespace '%s'"), *ToolName, *NamespaceName.ToString());
+			Entry.Color = FColor::Yellow;
 			Commands.Add(Entry);
+
+#if WITH_EDITOR
+			if (ToolWindow->IsEditorToolAllowed())
+			{
+				FAutoCompleteCommand EditorEntry;
+				EditorEntry.Command = FString::Printf(TEXT("%s %s"), *LaunchEditorToolCVARName, *ToolName);
+				EditorEntry.Desc = FString::Printf(TEXT("Launch editor panel tool for ImGui Tool '%s' in namespace '%s'"), *ToolName, *NamespaceName.ToString());
+				EditorEntry.Color = FColor::Cyan;
+				Commands.Add(EditorEntry);
+			}
+#endif
 		}
 	}
 #endif // #if DRAW_IMGUI_TOOLS

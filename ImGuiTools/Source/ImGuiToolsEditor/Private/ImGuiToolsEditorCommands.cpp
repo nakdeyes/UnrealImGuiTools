@@ -95,6 +95,39 @@ void FImGuiToolsEditorElements::RegisterElements_Internal()
 		FExecuteAction::CreateLambda([]() { ImGuiDebugCVars::CVarImGuiToolsEnabled.AsVariable()->Set(!ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread()); }), FCanExecuteAction(),
 		FIsActionChecked::CreateLambda([]() -> bool { return ImGuiDebugCVars::CVarImGuiToolsEnabled.GetValueOnGameThread(); }));
 
+	// Register Editor Tool window Editor Panels.
+	FImGuiToolsModule& ImGuiToolsModule = FModuleManager::GetModuleChecked<FImGuiToolsModule>("ImGuiTools");
+	if (ImGuiToolsModule.GetToolsManager().IsValid())
+	{
+		ToolNamespaceMap& ToolsWindows = ImGuiToolsModule.GetToolsManager()->GetToolsWindows();
+		for (TPair<FName, TArray<TSharedPtr<FImGuiToolWindow>>>& NamespaceToolWindows : ToolsWindows)
+		{
+			const TArray<TSharedPtr<FImGuiToolWindow>>& NamespaceTools = NamespaceToolWindows.Value;
+			for (TSharedPtr<FImGuiToolWindow> ToolWindow : NamespaceTools)
+			{
+				if (ToolWindow->IsEditorToolAllowed())
+				{
+					const FString EditorToolName = FString::Printf(TEXT("%s ImGuiEditorWidget"), *ToolWindow->GetToolName());
+					FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
+						*EditorToolName,
+						FOnSpawnTab::CreateLambda([ToolWindow] (const FSpawnTabArgs& args)
+						{
+							TSharedRef<SDockTab> MyTab = SNew(SDockTab)
+								.TabRole(ETabRole::NomadTab)
+								[
+									SNew(SImGuiToolsEditorWidget) // Embed the custom ImGui widget here
+									.ToolWindow(ToolWindow) // Explicitly capture ToolWindow
+								];
+							return MyTab;
+						})
+					)
+					.SetDisplayName(FText::FromString(EditorToolName))
+					.SetMenuType(ETabSpawnerMenuType::Hidden);
+				}
+			}
+		}
+	}
+	
 	struct Local
 	{
 		static void FillToolWindowsSubmenu(FMenuBuilder& MenuBuilder)
@@ -117,23 +150,7 @@ void FImGuiToolsEditorElements::RegisterElements_Internal()
 						}
 						else
 						{
-							FString EditorToolName = FString::Printf(TEXT("%s ImGuiEditorWidget"), *ToolWindow->GetToolName());
-							FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
-								*EditorToolName,
-								FOnSpawnTab::CreateLambda([ToolWindow] (const FSpawnTabArgs& args)
-								{
-									TSharedRef<SDockTab> MyTab = SNew(SDockTab)
-										.TabRole(ETabRole::NomadTab)
-										[
-											SNew(SImGuiToolsEditorWidget) // Embed the custom ImGui widget here
-											.ToolWindow(ToolWindow) // Explicitly capture ToolWindow
-										];
-									return MyTab;
-								})
-							)
-							.SetDisplayName(FText::FromString(EditorToolName))
-							.SetMenuType(ETabSpawnerMenuType::Hidden);
-							
+							const FString EditorToolName = FString::Printf(TEXT("%s ImGuiEditorWidget"), *ToolWindow->GetToolName());
 							MenuBuilder.AddWidget(
 								SNew(SHorizontalBox)
 								+ SHorizontalBox::Slot()
@@ -162,7 +179,6 @@ void FImGuiToolsEditorElements::RegisterElements_Internal()
 									.HAlign(HAlign_Right)
 									.OnClicked_Lambda([EditorToolName]()
 									{
-										UE_LOG(LogTemp, Log, TEXT("Button 2 Clicked"));
 										FGlobalTabmanager::Get()->TryInvokeTab(FTabId(*EditorToolName));
 										return FReply::Handled();
 									})

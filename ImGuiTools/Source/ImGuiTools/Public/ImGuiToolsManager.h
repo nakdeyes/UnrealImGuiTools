@@ -55,6 +55,10 @@ public:
 	static void ToggleToolVisCommand(const TArray<FString>& Args);
     static void ToggleToolsVisCommand(const TArray<FString>& Args);
 
+#if WITH_EDITOR
+	static void LaunchEditorTool(const TArray<FString>& Args);
+#endif
+
 	// Delegate callbacks
 	void OnWorldPostActorTick(UWorld* World, ELevelTick TickType, float DeltaSeconds);
 
