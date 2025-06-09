@@ -39,8 +39,8 @@ public class ImGuiTools : ModuleRules
 			}
 		);
 
-		// Additional Dependencies for non-Shipping builds.
-        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		// Additional Dependencies for non-Shipping, non-dedicated server builds.
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
         {
             PrivateDependencyModuleNames.AddRange(new string[] {
                 "ImGui",
