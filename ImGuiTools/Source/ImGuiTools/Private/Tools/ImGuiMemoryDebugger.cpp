@@ -212,7 +212,11 @@ namespace MemDebugUtils
 
 			for (FThreadSafeObjectIterator It; It; ++It)
 			{
+#if WITH_EDITORONLY_DATA
 				if ((!IncludeCDO && It->IsTemplate(RF_ClassDefaultObject)) || !It->GetPackage()->GetHasBeenEndLoaded())
+#else
+				if (!IncludeCDO && It->IsTemplate(RF_ClassDefaultObject))
+#endif
 				{
 					continue;
 				}
