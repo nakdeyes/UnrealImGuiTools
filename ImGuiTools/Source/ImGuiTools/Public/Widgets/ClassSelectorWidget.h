@@ -11,7 +11,7 @@ class UClass;
 
 namespace ImGuiTools
 {
-    struct FClassSelector
+    struct IMGUITOOLS_API FClassSelector
     {
         FClassSelector(UClass* RootClass, FString SearchDirectory = FString(TEXT("/Game/")), bool HierarchicalView = true);
         void Draw(const char* ID, ImVec2 Size);
