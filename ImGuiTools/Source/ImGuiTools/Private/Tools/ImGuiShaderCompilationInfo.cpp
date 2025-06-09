@@ -45,6 +45,8 @@ void FImGuiShaderCompilationInfo::ImGuiUpdate(float DeltaTime)
 		{
 			const int NumShaderCompStatMap = ShaderCompStat.Num();
 			ImGui::Text("  ShaderCompStat %02d / %02d - map size: %02d", ++CurShaderCompStat, NumShaderCompStats, NumShaderCompStatMap);
+#if (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION <= 4)
+			// NOTE (tim): This stuff changed significantly in UE 5.5 so excluding it there until it can get some love.
 			for (const TPair<FString, FShaderCompilerStats::FShaderStats>& ShaderStatEntry : ShaderCompStat)
 			{
 				ImGui::Text("      key %s - compiled: %d (d: %d) - cooked: %d (d: %d) - compile time: % .04f - perms: %d", Ansi(*ShaderStatEntry.Key), ShaderStatEntry.Value.Compiled, ShaderStatEntry.Value.CompiledDouble, ShaderStatEntry.Value.Cooked, ShaderStatEntry.Value.CookedDouble, ShaderStatEntry.Value.CompileTime, ShaderStatEntry.Value.PermutationCompilations.Num());
@@ -53,6 +55,7 @@ void FImGuiShaderCompilationInfo::ImGuiUpdate(float DeltaTime)
 					ImGui::Text("            perm: %s - compiled: %d (d: %d) - cooked: %d (d: %d)", Ansi(*PermStat.PermutationString), PermStat.Compiled, PermStat.CompiledDouble, PermStat.Cooked, PermStat.CookedDouble);
 				}
 			}
+#endif
 		}
 	}
 }

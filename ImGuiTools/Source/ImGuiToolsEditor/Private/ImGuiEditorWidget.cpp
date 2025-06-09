@@ -22,7 +22,11 @@ void SImGuiEditorWidget::Construct(const FArguments& InArgs)
 void SImGuiEditorWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
-	TSharedPtr<FImGuiContext> ImGuiContext = FImGuiModule::Get().FindOrCreateSessionContext(GPlayInEditorID);//, ParentWindow);
+#if (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 5)
+	TSharedPtr<FImGuiContext> ImGuiContext = FImGuiModule::Get().FindOrCreateSessionContext(UE::GetPlayInEditorID());
+#else
+	TSharedPtr<FImGuiContext> ImGuiContext = FImGuiModule::Get().FindOrCreateSessionContext(GPlayInEditorID);
+#endif
 	
 	if (ImGuiContext.IsValid())
 	{

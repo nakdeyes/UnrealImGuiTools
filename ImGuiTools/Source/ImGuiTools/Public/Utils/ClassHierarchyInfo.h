@@ -12,7 +12,7 @@ namespace ImGuiTools
 {
 	void DrawClassHierarchy(UObject* Obj, UClass* TerminatingParentClass = UObject::StaticClass());
 
-	struct FHierarchicalClassInfo
+	struct IMGUITOOLS_API FHierarchicalClassInfo
 	{
 		// This will only be set for loaded classes, check validity for load status.
 		TWeakObjectPtr<UClass> mClass;
@@ -38,7 +38,7 @@ namespace ImGuiTools
 	};
 
 	// A root class info that holds additional data for the whole tree like search directory, etc.
-	struct FHierarchicalRootClassInfo
+	struct IMGUITOOLS_API FHierarchicalRootClassInfo
 	{
 		FString mSearchDirectory;
 		FHierarchicalClassInfo mRootClassInfo;

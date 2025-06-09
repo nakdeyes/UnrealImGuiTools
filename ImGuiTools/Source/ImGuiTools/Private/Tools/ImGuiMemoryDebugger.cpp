@@ -191,7 +191,7 @@ namespace MemDebugUtils
 				for (int j = 0; j < NumClasses; ++j)
 				{
 					FCachedClassInfo& PotentialChild = Classes[j];
-					if (PotentialChild.Class->GetSuperClass() == ClassInfo.Class)
+					if (PotentialChild.Class.IsValid() && PotentialChild.Class->GetSuperClass() == ClassInfo.Class)
 					{
 						ClassInfo.ChildIndicies.Add(j);
 					}
@@ -212,7 +212,7 @@ namespace MemDebugUtils
 
 			for (FThreadSafeObjectIterator It; It; ++It)
 			{
-				if (!IncludeCDO && It->IsTemplate(RF_ClassDefaultObject))
+				if ((!IncludeCDO && It->IsTemplate(RF_ClassDefaultObject)) || !It->GetPackage()->GetHasBeenEndLoaded())
 				{
 					continue;
 				}
